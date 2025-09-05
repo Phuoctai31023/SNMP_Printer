@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đăng nhập Admin</title>
+    <style>
+      /* Reset & font */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: fadeBg 5s ease infinite alternate;
+      }
+
+      /* Container */
+      .login-container {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.2);
+        width: 380px;
+        animation: slideIn 0.6s ease-out;
+        backdrop-filter: blur(10px);
+      }
+
+      /* Title */
+      .login-title {
+        text-align: center;
+        font-size: 24px;
+        color: #333;
+        margin-bottom: 25px;
+        font-weight: bold;
+        position: relative;
+      }
+      .login-title::after {
+        content: "";
+        display: block;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        margin: 8px auto 0;
+        border-radius: 2px;
+      }
+
+      /* Input group */
+      .input-group {
+        position: relative;
+        margin-bottom: 20px;
+      }
+      .input-group input {
+        width: 100%;
+        padding: 12px 40px 12px 12px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+      .input-group input:focus {
+        border-color: #4facfe;
+        box-shadow: 0 0 8px rgba(79, 172, 254, 0.5);
+        outline: none;
+        transform: scale(1.02);
+      }
+      .input-group span {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #888;
+        font-size: 16px;
+      }
+
+      /* Button */
+      button {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        color: white;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        cursor: pointer;
+        transition: 0.3s ease;
+      }
+      button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+      }
+      button:active {
+        transform: scale(0.98);
+      }
+
+      /* Error box */
+      .error-box {
+        background: #ffe5e5;
+        color: #d8000c;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 15px;
+        animation: shake 0.4s ease;
+        text-align: center;
+      }
+
+      /* Animations */
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes fadeBg {
+        from {
+          background: linear-gradient(135deg, #4facfe, #00f2fe);
+        }
+        to {
+          background: linear-gradient(135deg, #43e97b, #38f9d7);
+        }
+      }
+      @keyframes shake {
+        0% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        50% {
+          transform: translateX(5px);
+        }
+        75% {
+          transform: translateX(-5px);
+        }
+        100% {
+          transform: translateX(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <form method="POST" action="/login">
+        <h2 class="login-title">🔑 Đăng nhập Admin</h2>
+
+        <% if (error) { %>
+        <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <div class="input-group">
+          <input name="username" placeholder="Tài khoản" required />
+          <span>👤</span>
+        </div>
+
+        <div class="input-group">
+          <input
+            name="password"
+            type="password"
+            placeholder="Mật khẩu"
+            required
+          />
+          <span>🔒</span>
+        </div>
+
+        <button type="submit">Đăng nhập</button>
+      </form>
+    </div>
+  </body>
+</html>
