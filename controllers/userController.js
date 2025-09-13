@@ -1,5 +1,6 @@
 const User = require("../models/user");
 const formatDateTime = require("../utils/formatDateTime");
+const bannedWord = require("../utils/bannedWord");
 
 const allowedUsernameRegex = /^[a-z][a-z0-9._@]*$/;
 
@@ -19,6 +20,10 @@ function validateUsernameFormat(username) {
     )
   ) {
     return { ok: false, msg: "Tên đăng nhập không được chứa dấu" };
+  }
+
+  if (bannedWord.hasBadWord(username)) {
+    return { ok: false, msg: "Tên đăng nhập chứa từ ngữ không phù hợp" };
   }
 
   if (!allowedUsernameRegex.test(username))
