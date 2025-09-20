@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Quản lý Máy In</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+        background-color: #f5f6fa;
+      }
+      .card-header {
+        font-weight: 500;
+      }
+      .status-online {
+        color: #28a745 !important;
+        font-weight: bold;
+      }
+      .status-offline {
+        color: #dc3545 !important;
+        font-weight: bold;
+      }
+      .status-warning {
+        color: #ffc107;
+        font-weight: bold;
+      }
+      .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 9999;
+        display: none; /* mặc định ẩn */
+        justify-content: center;
+        align-items: center;
+      }
+      th {
+        cursor: pointer;
+        user-select: none;
+      }
+      th i {
+        margin-left: 5px;
+        font-size: 0.9em;
+      }
+      th.active-sort {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+      }
+      td.highlight {
+        background-color: #fff3cd !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay" id="loadingOverlay">
+      <div
+        class="spinner-border text-primary"
+        style="width: 4rem; height: 4rem"
+        role="status"
+      >
+        <span class="visually-hidden">Đang xử lý...</span>
+      </div>
+    </div>
+
+    <div class="container mt-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary">Xin chào, <%= user.username %> 👋</h2>
+
+        <div class="d-flex align-items-center gap-2">
+          <!-- SNMP Settings button placed in header (next to user menu) -->
+          <button
+            type="button"
+            class="btn btn-outline-dark me-2"
+            data-bs-toggle="modal"
+            data-bs-target="#snmpAutoModal"
+            title="Cài đặt SNMP"
+          >
+            <i class="bi bi-gear"></i> Cài đặt SNMP
+          </button>
+          <span id="autoStatus" class="text-muted small me-2"></span>
+
+          <div class="dropdown">
+            <button
+              class="btn btn-outline-dark dropdown-toggle"
+              data-bs-toggle="dropdown"
+            >
+              <i class="bi bi-person-circle"></i> <%= user.username %> (<%=
+              user.role %>)
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <% if (user && user.role === 'admin') { %>
+              <li>
+                <a class="dropdown-item" href="/users"
+                  ><i class="bi bi-people me-2"></i>Quản lý người dùng</a
+                >
+              </li>
+              <li>
+                <a class="dropdown-item" href="/departments">
+                  <i class="bi bi-building-gear me-2"></i> Quản lý bộ phận
+                </a>
+              </li>
+              <% } %>
+              <li>
+                <a class="dropdown-item" href="/change-password"
+                  ><i class="bi bi-key me-2"></i>Đổi mật khẩu</a
+                >
+              </li>
+              <li>
+                <a class="dropdown-item text-danger" href="/logout"
+                  ><i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Khung hiển thị cập nhật gần nhất (server-side) -->
+      <div class="alert alert-info py-2 px-3 mb-3 shadow-sm" id="lastUpdateBox">
+        <i class="bi bi-clock-history"></i>
+        <span id="lastUpdateText">
+          <% if (typeof lastUpdate !== 'undefined' && lastUpdate) { %> Lần cập
+          nhật: <%= new Date(lastUpdate).toLocaleString('vi-VN') %> <% } else {
+          %> Chưa có lần cập nhật nào <% } %>
+        </span>
+      </div>
+
+      <!-- Thống kê nhanh -->
+      <div class="row mb-4">
+        <div class="col-md-4">
+          <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+              <h5 class="card-title text-muted">Tổng số máy in</h5>
+              <h3><%= printers.length %></h3>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+              <h5 class="card-title text-muted">Online</h5>
+              <h3 class="text-success">
+                <%= printers.filter(p => p.online).length %>
+              </h3>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+              <h5 class="card-title text-muted">Offline</h5>
+              <h3 class="text-danger">
+                <%= printers.filter(p => !p.online).length %>
+              </h3>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form thêm máy in (chỉ admin) -->
+      <% if (user && user.role === 'admin') { %>
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-printer-fill"></i> Thêm Máy In
+        </div>
+        <div class="card-body">
+          <form method="POST" action="/printers/add" class="row g-3">
+            <div class="col-md-4">
+              <input
+                name="ip_address"
+                class="form-control"
+                placeholder="IP Address"
+                required
+              />
+            </div>
+            <div class="col-md-4">
+              <select name="dpm_ID" class="form-select" required>
+                <option value="">-- Chọn bộ phận --</option>
+                <% if (Array.isArray(departments)) { %> <%
+                departments.forEach(function(dep){ %>
+                <option value="<%= dep._id %>"><%= dep.name %></option>
+                <% }) %> <% } %>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <button type="submit" class="btn btn-success w-100">
+                <i class="bi bi-plus-circle"></i> Thêm
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <% } %>
+
+      <!-- Bộ lọc và tìm kiếm -->
+      <div class="card-body p-2">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <input
+              type="text"
+              id="searchInput"
+              class="form-control"
+              placeholder="🔍 Tìm kiếm theo IP, Loại máy, Serial"
+              onkeyup="filterTable()"
+            />
+          </div>
+          <div class="col-md-3">
+            <select
+              id="statusFilter"
+              class="form-select"
+              onchange="filterTable()"
+            >
+              <option value="">-- Lọc theo trạng thái --</option>
+              <option value="Online">Online</option>
+              <option value="Offline">Offline</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <select
+              id="departmentFilter"
+              class="form-select"
+              onchange="filterTable()"
+            >
+              <option value="">-- Lọc theo bộ phận --</option>
+              <% if (Array.isArray(departments)) { %> <%
+              departments.forEach(function(dep){ %>
+              <option value="<%= dep._id %>"><%= dep.name %></option>
+              <% }) %> <% } %>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phân trang -->
+      <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+        <div>
+          Hiển thị <span id="currentRange">0-0</span> /
+          <span id="totalItems">0</span> máy in
+        </div>
+        <nav>
+          <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+        </nav>
+      </div>
+
+      <!-- Bảng danh sách máy in -->
+      <div class="card shadow-sm">
+        <div
+          class="card-header bg-dark text-white d-flex justify-content-between align-items-center"
+        >
+          <div><i class="bi bi-list-ul"></i> Danh Sách Máy In</div>
+
+          <!-- Nút cập nhật tất cả -->
+          <form
+            method="POST"
+            action="/printers/snmp-update-all"
+            onsubmit="showLoading(); saveLastUpdate();"
+          >
+            <button type="submit" class="btn btn-success btn-sm">
+              <i class="bi bi-arrow-repeat"></i> Cập nhật tất cả
+            </button>
+          </form>
+        </div>
+
+        <div class="table-responsive">
+          <table id="printerTable" class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th onclick="sortTable(0,this)">
+                  IP <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(1,this)">
+                  Loại <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(2,this)">
+                  Serial No <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(3,this)">
+                  Bộ phận <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(4,this)">
+                  Trạng thái <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(5,this)">
+                  Tình trạng <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(6,this)">
+                  Drum Unit <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(7,this)">
+                  Page Counter <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(8,this)">
+                  Toner Level <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <% if (user && user.role === 'admin') { %>
+                <th>Hành động</th>
+                <% } %>
+              </tr>
+            </thead>
+            <tbody id="printerBody">
+              <% if (Array.isArray(printers) && printers.length > 0) {
+              printers.forEach(function(p){ %>
+              <tr
+                data-department-id="<%= p.dpm_ID && p.dpm_ID._id ? p.dpm_ID._id : (p.dpm_ID || '') %>"
+              >
+                <td><%= p.ip_address %></td>
+                <td><%= p.printer_type || '-' %></td>
+                <td><%= p.serial_number || '-' %></td>
+                <td><%= p.dpm_ID ? p.dpm_ID.name : '-' %></td>
+                <td
+                  class="<%= p.online ? 'status-online' : 'status-offline' %>"
+                >
+                  <%= p.online ? 'Online' : 'Offline' %>
+                </td>
+                <td><%= p.condition || '-' %></td>
+                <td><%= p.drum_unit || '-' %></td>
+                <td><%= p.page_counter || '-' %></td>
+                <td class="text-center">
+                  <% const raw = p.toner_level; const parsed = (typeof raw ===
+                  'number') ? raw :
+                  parseInt(String(raw||'').replace(/[^\d]/g,''), 10); const isNA
+                  = raw === '-' || raw === 'N/A' || Number.isNaN(parsed); %> <%
+                  if (isNA) { %>
+                  <span class="text-muted">N/A</span>
+                  <% } else { const level = Math.max(0, Math.min(parsed, 100));
+                  const barClass = level > 50 ? 'bg-success' : (level > 20 ?
+                  'bg-warning' : 'bg-danger'); %>
+                  <div class="progress" style="height: 16px">
+                    <div
+                      class="progress-bar <%= barClass %>"
+                      role="progressbar"
+                      style="width: <%= level %>%"
+                      aria-valuenow="<%= level %>"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                    >
+                      <%= level %>%
+                    </div>
+                  </div>
+                  <% } %>
+                </td>
+
+                <% if (user && user.role === 'admin') { %>
+                <td class="text-center">
+                  <!-- nút Sửa -->
+                  <button
+                    class="btn btn-warning btn-sm me-1"
+                    onclick="openEditModalFromBtn(this)"
+                    data-id="<%= p._id %>"
+                    data-ip="<%= p.ip_address %>"
+                    data-dpm="<%= p.dpm_ID && p.dpm_ID._id ? p.dpm_ID._id : (p.dpm_ID || '') %>"
+                  >
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <!-- nút Xóa -->
+                  <form
+                    method="POST"
+                    action="/printers/delete/<%= p._id %>"
+                    class="d-inline"
+                    onsubmit="return confirm('Bạn có chắc chắn muốn xóa máy in này?');"
+                  >
+                    <button class="btn btn-danger btn-sm">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+                <% } %>
+              </tr>
+              <% }) } else { %>
+              <tr>
+                <td
+                  colspan="<%= user && user.role === 'admin' ? 10 : 9 %>"
+                  class="text-center text-muted"
+                >
+                  Không có dữ liệu máy in
+                </td>
+              </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal cài đặt tự động cập nhật SNMP -->
+    <div
+      class="modal fade"
+      id="snmpAutoModal"
+      tabindex="-1"
+      aria-labelledby="snmpAutoModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-md modal-dialog-centered">
+        <div class="modal-content rounded-3 shadow">
+          <div class="modal-header border-0">
+            <h5 class="modal-title fw-semibold" id="snmpAutoModalLabel">
+              <i class="bi bi-clock-history me-2 text-primary"></i>
+              Cài đặt tự động cập nhật SNMP
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Đóng"
+            ></button>
+          </div>
+
+          <div class="modal-body pt-0">
+            <!-- Công tắc bật/tắt -->
+            <div class="form-check form-switch mb-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="snmpAutoEnable"
+              />
+              <label class="form-check-label fw-medium" for="snmpAutoEnable">
+                Bật chế độ tự động
+              </label>
+            </div>
+
+            <!-- Nhóm lựa chọn khoảng thời gian -->
+            <div class="mb-2 fw-medium">Khoảng thời gian cập nhật</div>
+            <div class="d-flex flex-wrap gap-2">
+              <% [1,3,5,10,15,30,60].forEach(function(min){ %>
+              <input
+                type="radio"
+                class="btn-check"
+                name="snmpInterval"
+                id="snmp-<%= min %>"
+                value="<%= min %>"
+              />
+              <label
+                class="btn btn-outline-primary rounded-pill px-3"
+                for="snmp-<%= min %>"
+              >
+                <%= min %> phút
+              </label>
+              <% }) %>
+            </div>
+
+            <div class="text-muted small mt-3">
+              <i class="bi bi-info-circle me-1"></i>
+              Sau mỗi lần cập nhật, hệ thống sẽ tự động tải lại trang để hiển
+              thị dữ liệu mới nhất.
+            </div>
+          </div>
+
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+              <i class="bi bi-x-circle me-1"></i> Đóng
+            </button>
+            <button type="button" id="saveSnmpSettings" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i> Lưu cài đặt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal chỉnh sửa -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form method="POST" id="editForm">
+          <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+              <h5 class="modal-title">
+                <i class="bi bi-pencil-square"></i> Sửa máy in
+              </h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+              ></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">IP Address</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="edit_ip"
+                  name="ip_address"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Bộ Phận</label>
+                <select
+                  class="form-select"
+                  id="edit_dpm"
+                  name="dpm_ID"
+                  required
+                >
+                  <option value="">-- Chọn bộ phận --</option>
+                  <% if (Array.isArray(departments)) { %> <%
+                  departments.forEach(function(dep){ %>
+                  <option value="<%= dep._id %>"><%= dep.name %></option>
+                  <% }) %> <% } %>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                Đóng
+              </button>
+              <button type="submit" class="btn btn-warning">
+                Lưu thay đổi
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+      function showLoading() {
+        const el = document.getElementById("loadingOverlay");
+        if (el) el.style.display = "flex";
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const error = params.get("error");
+      const success = params.get("success");
+
+      if (error) {
+        Swal.fire({
+          icon: "error",
+          title: "Lỗi",
+          text: decodeURIComponent(error),
+          confirmButtonColor: "#d33",
+        }).then(() =>
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          )
+        );
+      }
+
+      if (success) {
+        Swal.fire({
+          icon: "success",
+          title: "Thành công",
+          text: decodeURIComponent(success),
+          confirmButtonColor: "#28a745",
+        }).then(() =>
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          )
+        );
+      }
+
+      let sortDirections = {};
+      function sortTable(colIndex, headerEl) {
+        const table = document.getElementById("printerTable");
+        const tbody = table.querySelector("tbody");
+        const rows = Array.from(tbody.querySelectorAll("tr")).filter((r) =>
+          r.querySelector("td")
+        );
+        sortDirections[colIndex] = !sortDirections[colIndex];
+
+        rows.sort((a, b) => {
+          let cellA =
+            a.children[colIndex] && a.children[colIndex].innerText
+              ? a.children[colIndex].innerText.trim()
+              : "";
+          let cellB =
+            b.children[colIndex] && b.children[colIndex].innerText
+              ? b.children[colIndex].innerText.trim()
+              : "";
+          let numA = parseFloat(cellA.replace(/[^0-9.-]/g, ""));
+          let numB = parseFloat(cellB.replace(/[^0-9.-]/g, ""));
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return sortDirections[colIndex] ? numA - numB : numB - numA;
+          }
+          return sortDirections[colIndex]
+            ? cellA.localeCompare(cellB, "vi", { sensitivity: "base" })
+            : cellB.localeCompare(cellA, "vi", { sensitivity: "base" });
+        });
+
+        tbody.innerHTML = "";
+        rows.forEach((row) => tbody.appendChild(row));
+
+        document
+          .querySelectorAll("th")
+          .forEach((th) => th.classList.remove("active-sort"));
+        document
+          .querySelectorAll("td")
+          .forEach((td) => td.classList.remove("highlight"));
+        document
+          .querySelectorAll("th i")
+          .forEach((icon) => (icon.className = "bi bi-arrow-down-up"));
+
+        const icon = headerEl.querySelector("i");
+        if (icon) {
+          icon.className = sortDirections[colIndex]
+            ? "bi bi-arrow-up"
+            : "bi bi-arrow-down";
+        }
+
+        headerEl.classList.add("active-sort");
+        tbody.querySelectorAll("tr").forEach((row) => {
+          row.children[colIndex] &&
+            row.children[colIndex].classList.add("highlight");
+        });
+      }
+
+      let originalRows = [];
+      let currentPage = 1;
+      let rowsPerPage = 10;
+
+      function filterTable() {
+        let searchValue = (
+          document.getElementById("searchInput").value || ""
+        ).toLowerCase();
+        let statusValue = document.getElementById("statusFilter").value || "";
+        let departmentValue =
+          document.getElementById("departmentFilter").value || "";
+
+        let filteredRows = originalRows.filter((row) => {
+          if (!row.querySelector("td")) return false;
+          let cells = row.getElementsByTagName("td");
+          let ip = ((cells[0] && cells[0].innerText) || "").toLowerCase();
+          let type = ((cells[1] && cells[1].innerText) || "").toLowerCase();
+          let serial = ((cells[2] && cells[2].innerText) || "").toLowerCase();
+          let status = ((cells[4] && cells[4].innerText) || "")
+            .trim()
+            .toLowerCase();
+
+          let departmentId = row.dataset.departmentId || ""; // compare by id
+
+          let matchesSearch =
+            ip.includes(searchValue) ||
+            type.includes(searchValue) ||
+            serial.includes(searchValue);
+
+          let matchesStatus =
+            statusValue === "" || status.includes(statusValue.toLowerCase());
+
+          let matchesDepartment =
+            departmentValue === "" || departmentId === departmentValue;
+
+          return matchesSearch && matchesStatus && matchesDepartment;
+        });
+
+        renderTable(filteredRows);
+      }
+
+      function renderTable(filteredRows) {
+        let tbody = document.getElementById("printerBody");
+        document.getElementById("totalItems").innerText = filteredRows.length;
+
+        let totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+        if (currentPage > totalPages) currentPage = 1;
+        let start = (currentPage - 1) * rowsPerPage;
+        let end = start + rowsPerPage;
+
+        document.getElementById("currentRange").innerText =
+          filteredRows.length > 0
+            ? `${start + 1}-${Math.min(end, filteredRows.length)}`
+            : "0-0";
+
+        tbody.innerHTML = "";
+        if (filteredRows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="${
+            user && user.role === "admin" ? 10 : 9
+          }" class="text-center text-muted">Không có dữ liệu máy in</td></tr>`;
+        } else {
+          filteredRows
+            .slice(start, end)
+            .forEach((row) => tbody.appendChild(row));
+        }
+
+        renderPagination(totalPages);
+      }
+
+      function renderPagination(totalPages) {
+        let pagination = document.getElementById("pagination");
+        pagination.innerHTML = "";
+
+        for (let i = 1; i <= totalPages; i++) {
+          let li = document.createElement("li");
+          li.className = "page-item" + (i === currentPage ? " active" : "");
+          let a = document.createElement("a");
+          a.className = "page-link";
+          a.href = "#";
+          a.innerText = i;
+          a.onclick = function (e) {
+            e.preventDefault();
+            currentPage = i;
+            filterTable();
+          };
+          li.appendChild(a);
+          pagination.appendChild(li);
+        }
+      }
+
+      function openEditModalFromBtn(btn) {
+        const id = btn.dataset.id;
+        const ip = btn.dataset.ip || "";
+        const dpm = btn.dataset.dpm || "";
+        document.getElementById("edit_ip").value = ip;
+        document.getElementById("edit_dpm").value = dpm;
+        document.getElementById("editForm").action = "/printers/update/" + id;
+        let modal = new bootstrap.Modal(document.getElementById("editModal"));
+        modal.show();
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        // Khởi tạo originalRows sau khi toàn bộ DOM đã render
+        originalRows = Array.from(
+          document.querySelectorAll("#printerBody tr")
+        ).filter((r) => r.querySelector("td"));
+
+        // Giá trị hiển thị ban đầu
+        filterTable();
+
+        // Cập nhật last update (client-side cached)
+        if (typeof updateLastUpdateBox === "function") updateLastUpdateBox();
+      });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- SNMP Auto Update client script (placed AFTER bootstrap bundle so bootstrap.Modal is available) -->
+    <script>
+      (function () {
+        const STORAGE_KEY_ENABLED = "snmp_auto_enabled";
+        const STORAGE_KEY_INTERVAL = "snmp_auto_interval"; // minutes
+        let autoTimerId = null;
+
+        function getSavedInterval() {
+          const v = localStorage.getItem(STORAGE_KEY_INTERVAL);
+          return v !== null ? parseInt(v, 10) : 1;
+        }
+        function isEnabled() {
+          return localStorage.getItem(STORAGE_KEY_ENABLED) === "true";
+        }
+
+        function updateAutoStatusText() {
+          const el = document.getElementById("autoStatus");
+          if (!el) return;
+          if (isEnabled()) {
+            const mn = getSavedInterval();
+            el.textContent = `Tự động: BẬT (${mn} phút)`;
+          } else {
+            el.textContent = "Tự động: TẮT";
+          }
+        }
+
+        async function performSnmpUpdateAndReload() {
+          try {
+            if (typeof showLoading === "function") showLoading();
+            await fetch("/printers/snmp-update-all", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { Accept: "text/html" },
+            });
+            saveLastUpdate();
+          } catch (e) {
+            console.error("Auto SNMP update failed:", e);
+          } finally {
+            try {
+              window.location.reload();
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
+
+        function startAutoTimer() {
+          stopAutoTimer();
+          const minutes = getSavedInterval();
+          if (!isEnabled() || !minutes || minutes <= 0) return;
+          autoTimerId = setInterval(() => {
+            performSnmpUpdateAndReload();
+          }, minutes * 60 * 1000);
+          console.log("Auto SNMP started (every " + minutes + " minutes)");
+        }
+
+        function stopAutoTimer() {
+          if (autoTimerId) {
+            clearInterval(autoTimerId);
+            autoTimerId = null;
+          }
+        }
+
+        function initControls() {
+          // set radios
+          const saved = getSavedInterval();
+          const radio = document.querySelector(
+            `input[name="snmpInterval"][value="${saved}"]`
+          );
+          if (radio) radio.checked = true;
+
+          const chk = document.getElementById("snmpAutoEnable");
+          if (chk) chk.checked = isEnabled();
+
+          const saveBtn = document.getElementById("saveSnmpSettings");
+          if (saveBtn) {
+            saveBtn.addEventListener("click", function () {
+              const sel = Array.from(
+                document.getElementsByName("snmpInterval")
+              ).find((r) => r.checked);
+              const val = sel ? parseInt(sel.value, 10) : 1;
+              const enabled = document.getElementById("snmpAutoEnable").checked;
+
+              localStorage.setItem(STORAGE_KEY_INTERVAL, String(val));
+              localStorage.setItem(
+                STORAGE_KEY_ENABLED,
+                enabled ? "true" : "false"
+              );
+
+              updateAutoStatusText();
+
+              if (enabled && val > 0) {
+                startAutoTimer();
+                // chạy cập nhật ngay khi bật và lưu (nếu bạn không muốn chạy ngay, xóa dòng dưới)
+                performSnmpUpdateAndReload();
+              } else {
+                stopAutoTimer();
+              }
+
+              // đóng modal
+              const modalEl = document.getElementById("snmpAutoModal");
+              if (modalEl) {
+                const modal =
+                  bootstrap.Modal.getInstance(modalEl) ||
+                  new bootstrap.Modal(modalEl);
+                modal.hide();
+              }
+            });
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          // mặc định lần đầu: enabled=true, interval=1
+          if (localStorage.getItem(STORAGE_KEY_INTERVAL) === null) {
+            localStorage.setItem(STORAGE_KEY_INTERVAL, "1");
+          }
+          if (localStorage.getItem(STORAGE_KEY_ENABLED) === null) {
+            localStorage.setItem(STORAGE_KEY_ENABLED, "true");
+          }
+
+          updateAutoStatusText();
+          initControls();
+
+          // start timer on load if enabled
+          if (isEnabled() && getSavedInterval() > 0) {
+            startAutoTimer();
+          }
+        });
+      })();
+    </script>
+
+    <script>
+      const STORAGE_KEY_LASTUPDATE = "snmp_last_update";
+
+      function formatDateTime(ts) {
+        const d = new Date(parseInt(ts, 10));
+        return d.toLocaleString("vi-VN");
+      }
+
+      function updateLastUpdateBox() {
+        const el = document.getElementById("lastUpdateText");
+        const last = localStorage.getItem(STORAGE_KEY_LASTUPDATE);
+        if (el) {
+          if (last) {
+            el.textContent = "Lần cập nhật: " + formatDateTime(last);
+          } else {
+            // if server already printed a lastUpdate, don't overwrite it - only show client cache when available
+            if (!el.innerText || el.innerText.trim().length === 0) {
+              el.textContent = "Chưa có lần cập nhật nào";
+            }
+          }
+        }
+      }
+
+      function saveLastUpdate() {
+        localStorage.setItem(STORAGE_KEY_LASTUPDATE, Date.now().toString());
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        updateLastUpdateBox();
+      });
+    </script>
+  </body>
+</html>
