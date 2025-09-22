@@ -258,9 +258,9 @@
         >
           <div><i class="bi bi-list-ul"></i> Danh Sách Máy In</div>
           <form
+            id="updateAllForm"
             method="POST"
             action="/printers/snmp-update-all"
-            onsubmit="showLoading();"
           >
             <button type="submit" class="btn btn-success btn-sm">
               <i class="bi bi-arrow-repeat"></i> Cập nhật tất cả
@@ -864,9 +864,13 @@
         const last = localStorage.getItem(STORAGE_KEY_LASTUPDATE);
         if (!el) return;
         if (last) {
-          el.textContent = "Lần cập nhật: " + formatDateTime(last);
+          el.textContent = "Lần cập nhật gần nhất: " + formatDateTime(last);
         } else {
-          el.textContent = "Chưa có lần cập nhật nào";
+          // nếu server đã cung cấp lastUpdate thì giữ nội dung server; script này chỉ override khi có localStorage
+          const serverProvided = el.getAttribute("data-server-last");
+          if (!serverProvided) {
+            el.textContent = "Chưa có lần cập nhật nào";
+          }
         }
       }
       function saveLastUpdate() {
@@ -875,6 +879,47 @@
       }
       document.addEventListener("DOMContentLoaded", function () {
         updateLastUpdateBox();
+
+        // Intercept "Cập nhật tất cả" để gửi bằng fetch và chỉ lưu lastUpdate khi server trả về thành công
+        const updateForm = document.getElementById("updateAllForm");
+        if (updateForm) {
+          updateForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            if (typeof showLoading === "function") showLoading();
+            const submitBtn = updateForm.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+            try {
+              const res = await fetch(updateForm.action, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { Accept: "text/html" },
+              });
+              if (res.ok) {
+                // chỉ lưu lần cập nhật khi server trả về 2xx
+                saveLastUpdate();
+                window.location.reload();
+              } else {
+                const txt = await res.text();
+                console.error("Update all failed", res.status, txt);
+                Swal.fire({
+                  icon: "error",
+                  title: "Lỗi",
+                  text: "Cập nhật thất bại",
+                });
+              }
+            } catch (err) {
+              console.error(err);
+              Swal.fire({
+                icon: "error",
+                title: "Lỗi",
+                text: "Không thể kết nối tới server",
+              });
+            } finally {
+              if (typeof hideLoading === "function") hideLoading();
+              if (submitBtn) submitBtn.disabled = false;
+            }
+          });
+        }
       });
     </script>
   </body>
