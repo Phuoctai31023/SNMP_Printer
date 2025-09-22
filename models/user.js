@@ -10,8 +10,14 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    email: { type: String, trim: true, default: null }, // thêm email
     password: { type: String, required: true },
     role: { type: String, enum: ["admin", "user"], default: "user" },
+    department: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department", // tham chiếu phòng ban
+      default: null,
+    },
     isBlocked: { type: Boolean, default: false },
   },
   { timestamps: true }

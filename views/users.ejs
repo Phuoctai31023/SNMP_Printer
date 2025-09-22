@@ -67,11 +67,7 @@
   <body>
     <!-- Loading Overlay -->
     <div class="overlay" id="loadingOverlay">
-      <div
-        class="spinner-border text-primary"
-        style="width: 4rem; height: 4rem"
-        role="status"
-      >
+      <div class="spinner-border text-primary spinner-border-lg" role="status">
         <span class="visually-hidden">Đang xử lý...</span>
       </div>
     </div>
@@ -102,18 +98,19 @@
             </li>
             <% } %>
             <li>
-              <a class="dropdown-item" href="/change-password"
-                ><i class="bi bi-key me-2"></i>Đổi mật khẩu</a
-              >
+              <a class="dropdown-item" href="/change-password">
+                <i class="bi bi-key me-2"></i>Đổi mật khẩu
+              </a>
             </li>
             <li>
-              <a class="dropdown-item text-danger" href="/logout"
-                ><i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</a
-              >
+              <a class="dropdown-item text-danger" href="/logout">
+                <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
+              </a>
             </li>
           </ul>
         </div>
       </div>
+
       <!-- Thống kê nhanh -->
       <div class="row mb-4">
         <div class="col-md-3">
@@ -161,58 +158,40 @@
 
       <!-- Form thêm user -->
       <% if (user && user.role === 'admin') { %>
-      <div class="card shadow-sm mb-4">
-        <div class="card-header bg-primary text-white">
+      <div class="d-flex justify-content-end mb-3">
+        <button
+          class="btn btn-success"
+          data-bs-toggle="modal"
+          data-bs-target="#addUserModal"
+        >
           <i class="bi bi-person-plus-fill"></i> Thêm Người Dùng
-        </div>
-        <div class="card-body">
-          <form method="POST" action="/users/add" class="row g-3">
-            <div class="col-md-4">
-              <input
-                name="username"
-                class="form-control"
-                placeholder="Tên đăng nhập"
-                required
-                pattern="^[a-z][a-z0-9._@]*$"
-                title="Tên đăng nhập chỉ gồm chữ thường, số, ký tự . _ @ và bắt đầu bằng chữ cái"
-              />
-            </div>
-            <div class="col-md-4">
-              <input
-                type="password"
-                name="password"
-                class="form-control"
-                placeholder="Mật khẩu"
-                required
-              />
-            </div>
-            <div class="col-md-2">
-              <select name="role" class="form-select">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <button type="submit" class="btn btn-success w-100">
-                <i class="bi bi-plus-circle"></i> Thêm
-              </button>
-            </div>
-          </form>
-        </div>
+        </button>
       </div>
       <% } %>
 
       <!-- Bộ lọc & tìm kiếm -->
       <div class="card-body p-2">
         <div class="row g-3 mb-3">
-          <div class="col-md-6">
+          <div class="col-md-4">
             <input
               type="text"
               id="searchInput"
               class="form-control"
-              placeholder="🔍 Tìm kiếm theo tên hoặc quyền"
+              placeholder="🔍 Tìm kiếm theo tên"
               onkeyup="filterTable()"
             />
+          </div>
+          <div class="col-md-3">
+            <select
+              id="departmentFilter"
+              class="form-select"
+              onchange="filterTable()"
+            >
+              <option value="">-- Lọc theo phòng ban --</option>
+              <% departments.forEach(d => { %>
+              <option value="<%= d.name.toLowerCase() %>"><%= d.name %></option>
+              <% }) %>
+            </select>
           </div>
           <div class="col-md-3">
             <select
@@ -225,7 +204,7 @@
               <option value="user">User</option>
             </select>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <select
               id="statusFilter"
               class="form-select"
@@ -262,6 +241,8 @@
                 <th onclick="sortTable(0,this)">
                   Tên đăng nhập <i class="bi bi-arrow-down-up"></i>
                 </th>
+                <th>Email</th>
+                <th>Phòng ban</th>
                 <th onclick="sortTable(1,this)">
                   Quyền <i class="bi bi-arrow-down-up"></i>
                 </th>
@@ -281,6 +262,8 @@
               <% if (users && users.length > 0) { users.forEach(u => { %>
               <tr>
                 <td><%= u.username %></td>
+                <td><%= u.email || '-' %></td>
+                <td><%= u.department ? u.department.name : '-' %></td>
                 <td>
                   <span
                     class="badge <%= u.role === 'admin' ? 'bg-primary' : 'bg-info' %>"
@@ -304,16 +287,21 @@
                     data-id="<%= u._id %>"
                     data-username="<%= u.username %>"
                     data-role="<%= u.role %>"
+                    data-email="<%= u.email %>"
+                    data-department="<%= u.department ? u.department._id : '' %>"
                   >
                     <i class="bi bi-pencil-square"></i>
                   </button>
                   <form
-                    method="POST"
                     action="/users/delete/<%= u._id %>"
-                    class="d-inline"
-                    onsubmit="return confirm('Bạn có chắc muốn xóa user này?');"
+                    method="POST"
+                    style="display: inline"
                   >
-                    <button class="btn btn-danger btn-sm">
+                    <button
+                      type="submit"
+                      class="btn btn-danger btn-sm"
+                      onclick="return confirm('Bạn có chắc chắn muốn xóa người dùng này?')"
+                    >
                       <i class="bi bi-trash"></i>
                     </button>
                   </form>
@@ -321,7 +309,7 @@
                     method="POST"
                     action="/users/toggle-block/<%= u._id %>"
                     class="d-inline ms-1"
-                    onsubmit="return confirm('Bạn có chắc muốn <%= u.isBlocked ? 'mở chặn' : 'chặn' %> user này?');"
+                    onsubmit="return confirm('Bạn có chắc muốn <%= u.isBlocked ? 'mở chặn' : 'chặn' %> người dùng này?');"
                   >
                     <button
                       class="btn <%= u.isBlocked ? 'btn-success' : 'btn-secondary' %> btn-sm"
@@ -338,7 +326,7 @@
               </tr>
               <% }) } else { %>
               <tr>
-                <td colspan="6" class="text-center text-muted">
+                <td colspan="8" class="text-center text-muted">
                   Không có người dùng
                 </td>
               </tr>
@@ -346,6 +334,86 @@
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal thêm user -->
+    <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <form method="POST" action="/users/add">
+          <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+              <h5 class="modal-title">
+                <i class="bi bi-person-plus-fill"></i> Thêm Người Dùng
+              </h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+              ></button>
+            </div>
+            <div class="modal-body row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Tên đăng nhập</label>
+                <input
+                  name="username"
+                  class="form-control"
+                  placeholder="Tên đăng nhập"
+                  required
+                  pattern="^[a-z][a-z0-9._@]*$"
+                  title="Tên đăng nhập chỉ gồm chữ thường, số, ký tự . _ @ và bắt đầu bằng chữ cái"
+                />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Mật khẩu</label>
+                <input
+                  type="password"
+                  name="password"
+                  class="form-control"
+                  placeholder="Mật khẩu"
+                  required
+                />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  class="form-control"
+                  placeholder="Email"
+                />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Phòng ban</label>
+                <select name="department" class="form-select">
+                  <option value="">-- Chọn phòng ban --</option>
+                  <% departments.forEach(d => { %>
+                  <option value="<%= d._id %>"><%= d.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Quyền</label>
+                <select name="role" class="form-select">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                Đóng
+              </button>
+              <button type="submit" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Thêm
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -375,6 +443,28 @@
                   id="editUsername"
                   required
                 />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input
+                  type="email"
+                  class="form-control"
+                  name="email"
+                  id="editEmail"
+                />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Phòng ban</label>
+                <select
+                  class="form-select"
+                  name="department"
+                  id="editDepartment"
+                >
+                  <option value="">-- Chọn phòng ban --</option>
+                  <% departments.forEach(d => { %>
+                  <option value="<%= d._id %>"><%= d.name %></option>
+                  <% }) %>
+                </select>
               </div>
               <div class="mb-3">
                 <label class="form-label">Quyền</label>
@@ -409,10 +499,6 @@
 
     <!-- Scripts -->
     <script>
-      function showLoading() {
-        document.getElementById("loadingOverlay").style.display = "flex";
-      }
-
       // Alert hiển thị lỗi/thành công
       const params = new URLSearchParams(window.location.search);
       const error = params.get("error"),
@@ -492,84 +578,96 @@
       let currentPage = 1;
       let rowsPerPage = 10;
 
+      window.onload = function () {
+        originalRows = Array.from(document.querySelectorAll("#userBody tr"));
+        filterTable();
+      };
+
       function filterTable() {
-        let search = document.getElementById("searchInput").value.toLowerCase();
-        let role = document.getElementById("roleFilter").value;
-        let status = document.getElementById("statusFilter").value;
+        const search = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        const role = document.getElementById("roleFilter").value.toLowerCase();
+        const status = document
+          .getElementById("statusFilter")
+          .value.toLowerCase();
+        const dept = document
+          .getElementById("departmentFilter")
+          .value.toLowerCase();
+
         let filtered = originalRows.filter((row) => {
-          if (!row.querySelector("td")) return false;
-          let cells = row.getElementsByTagName("td");
-          let name = (cells[0].innerText || "").toLowerCase();
-          let roleText = (cells[1].innerText || "").trim();
-          let statusText = (cells[2].innerText || "").trim();
-          let matchSearch = name.includes(search);
-          let matchRole = role === "" || roleText === role;
-          let matchStatus = status === "" || statusText === status;
-          return matchSearch && matchRole && matchStatus;
+          const cells = row.querySelectorAll("td");
+          if (!cells.length) return false;
+          const username = cells[0].innerText.toLowerCase();
+          const email = cells[1].innerText.toLowerCase();
+          const department = cells[2].innerText.toLowerCase();
+          const roleText = cells[3].innerText.toLowerCase();
+          const statusText = cells[4].innerText.toLowerCase();
+
+          return (
+            (!search || username.includes(search) || email.includes(search)) &&
+            (!role || roleText.includes(role)) &&
+            (!status || statusText.includes(status)) &&
+            (!dept || department.includes(dept))
+          );
         });
-        renderTable(filtered);
+
+        paginate(filtered);
       }
 
-      function renderTable(filtered) {
-        let tbody = document.getElementById("userBody");
-        document.getElementById("totalItems").innerText = filtered.length;
-        let totalPages = Math.ceil(filtered.length / rowsPerPage) || 1;
-        if (currentPage > totalPages) currentPage = 1;
-        let start = (currentPage - 1) * rowsPerPage;
-        let end = start + rowsPerPage;
-
-        document.getElementById("currentRange").innerText =
-          filtered.length > 0
-            ? `${start + 1}-${Math.min(end, filtered.length)}`
-            : "0-0";
-
+      function paginate(rows) {
+        const tbody = document.getElementById("userBody");
         tbody.innerHTML = "";
-        if (filtered.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Không có người dùng</td></tr>`;
-        } else {
-          filtered.slice(start, end).forEach((row) => tbody.appendChild(row));
-        }
-        renderPagination(totalPages);
-      }
 
-      function renderPagination(totalPages) {
-        let pagination = document.getElementById("pagination");
+        const totalItems = rows.length;
+        const totalPages = Math.ceil(totalItems / rowsPerPage) || 1;
+
+        if (currentPage > totalPages) currentPage = totalPages;
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const visibleRows = rows.slice(start, end);
+
+        visibleRows.forEach((r) => tbody.appendChild(r));
+
+        document.getElementById("totalItems").innerText = totalItems;
+        document.getElementById("currentRange").innerText =
+          totalItems > 0 ? `${start + 1}-${Math.min(end, totalItems)}` : "0-0";
+
+        const pagination = document.getElementById("pagination");
         pagination.innerHTML = "";
         for (let i = 1; i <= totalPages; i++) {
-          let li = document.createElement("li");
-          li.className = "page-item" + (i === currentPage ? " active" : "");
-          let a = document.createElement("a");
-          a.className = "page-link";
-          a.href = "#";
-          a.innerText = i;
-          a.onclick = function (e) {
+          const li = document.createElement("li");
+          li.className = `page-item ${i === currentPage ? "active" : ""}`;
+          li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+          li.addEventListener("click", (e) => {
             e.preventDefault();
             currentPage = i;
-            filterTable();
-          };
-          li.appendChild(a);
+            paginate(rows);
+          });
           pagination.appendChild(li);
         }
       }
-
-      // Mở modal sửa user
+      // Mở modal edit
       function openEditModalFromBtn(btn) {
-        const id = btn.dataset.id,
-          username = btn.dataset.username,
-          role = btn.dataset.role;
-        document.getElementById("editId").value = id;
-        document.getElementById("editUsername").value = username;
-        document.getElementById("editRole").value = role;
-        document.getElementById("editForm").action = "/users/update/" + id;
-        new bootstrap.Modal(document.getElementById("editModal")).show();
+        const { id, username, role, email, department } = btn.dataset;
+
+        // Gán giá trị vào form
+        document.getElementById("editId").value = id || "";
+        document.getElementById("editUsername").value = username || "";
+        document.getElementById("editEmail").value = email || "";
+        document.getElementById("editRole").value = role || "";
+        document.getElementById("editDepartment").value = department || "";
+
+        // 🚀 Đổi từ /users/edit/ sang /users/update/
+        document.getElementById("editForm").action = `/users/update/${id}`;
+
+        // Hiển thị modal
+        const modalEl = document.getElementById("editModal");
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
       }
-      window.onload = function () {
-        originalRows = Array.from(
-          document.querySelectorAll("#userBody tr")
-        ).filter((r) => r.querySelector("td"));
-        filterTable();
-      };
     </script>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

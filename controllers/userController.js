@@ -1,4 +1,5 @@
 const User = require("../models/user");
+const Department = require("../models/department");
 const formatDateTime = require("../utils/formatDateTime");
 const bannedWord = require("../utils/bannedWord");
 
@@ -67,14 +68,22 @@ function validateUsernameFormat(username) {
  */
 exports.listUsers = async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 }).lean();
+    const users = await User.find()
+      .populate("department", "name") // lấy tên phòng ban
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const departments = await Department.find().lean(); // danh sách phòng ban
+
     const usersWithFormat = (users || []).map((u) => ({
       ...u,
       createdAtFormatted: formatDateTime(u.createdAt),
       updatedAtFormatted: formatDateTime(u.updatedAt),
     }));
+
     res.render("users", {
       users: usersWithFormat,
+      departments, // truyền xuống view để render combobox
       user: req.session && req.session.user ? req.session.user : null,
       error: req.query.error || null,
       success: req.query.success || null,
@@ -90,7 +99,7 @@ exports.listUsers = async (req, res) => {
  */
 exports.addUser = async (req, res) => {
   try {
-    let { username, password, role } = req.body;
+    let { username, password, role, email, department } = req.body;
     if (!username || !password) {
       return res.redirect("/users?error=Thiếu username hoặc password");
     }
@@ -102,7 +111,13 @@ exports.addUser = async (req, res) => {
     const exists = await User.findOne({ username });
     if (exists) return res.redirect("/users?error=Tài khoản đã tồn tại");
 
-    const user = new User({ username, password, role: role || "user" });
+    const user = new User({
+      username,
+      password,
+      role: role || "user",
+      email: email || null,
+      department: department && department !== "" ? department : null,
+    });
     await user.save();
     return res.redirect("/users?success=Thêm người dùng thành công");
   } catch (err) {
@@ -117,11 +132,10 @@ exports.addUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    let { username, role, password } = req.body;
+    let { username, role, password, email, department } = req.body;
     const u = await User.findById(id);
     if (!u) return res.redirect("/users?error=Không tìm thấy người dùng");
 
-    // không cho tự hạ quyền chính mình
     if (
       req.session &&
       req.session.user &&
@@ -131,10 +145,8 @@ exports.updateUser = async (req, res) => {
       return res.redirect("/users?error=Không thể tự hạ quyền của chính bạn");
     }
 
-    // chỉ check username nếu có thay đổi thực sự
     if (username && username.trim() !== u.username) {
       username = username.trim();
-
       const v = validateUsernameFormat(username);
       if (!v.ok)
         return res.redirect(`/users?error=${encodeURIComponent(v.msg)}`);
@@ -143,15 +155,18 @@ exports.updateUser = async (req, res) => {
       if (exists && String(exists._id) !== String(u._id)) {
         return res.redirect("/users?error=Tên đăng nhập đã có người sử dụng");
       }
-
       u.username = username;
     }
 
     if (role) u.role = role;
+    if (email !== undefined) u.email = email || null;
+    if (department !== undefined && department !== "")
+      u.department = department;
+    else u.department = null;
     if (password && password.trim() !== "") u.password = password;
+
     await u.save();
 
-    // sync lại session nếu user tự sửa mình
     if (
       req.session &&
       req.session.user &&
@@ -159,6 +174,8 @@ exports.updateUser = async (req, res) => {
     ) {
       req.session.user.username = u.username;
       req.session.user.role = u.role;
+      req.session.user.email = u.email;
+      req.session.user.department = u.department;
     }
 
     res.redirect("/users?success=Cập nhật thành công");
