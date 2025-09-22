@@ -864,7 +864,7 @@
         const last = localStorage.getItem(STORAGE_KEY_LASTUPDATE);
         if (!el) return;
         if (last) {
-          el.textContent = "Lần cập nhật gần nhất: " + formatDateTime(last);
+          el.textContent = "Lần cập nhật: " + formatDateTime(last);
         } else {
           // nếu server đã cung cấp lastUpdate thì giữ nội dung server; script này chỉ override khi có localStorage
           const serverProvided = el.getAttribute("data-server-last");

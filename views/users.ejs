@@ -187,7 +187,7 @@
               class="form-select"
               onchange="filterTable()"
             >
-              <option value="">-- Lọc theo phòng ban --</option>
+              <option value="">-- Lọc theo Bộ phận --</option>
               <% departments.forEach(d => { %>
               <option value="<%= d.name.toLowerCase() %>"><%= d.name %></option>
               <% }) %>
@@ -241,18 +241,22 @@
                 <th onclick="sortTable(0,this)">
                   Tên đăng nhập <i class="bi bi-arrow-down-up"></i>
                 </th>
-                <th>Email</th>
-                <th>Phòng ban</th>
                 <th onclick="sortTable(1,this)">
-                  Quyền <i class="bi bi-arrow-down-up"></i>
+                  Email <i class="bi bi-arrow-down-up"></i>
                 </th>
                 <th onclick="sortTable(2,this)">
-                  Trạng thái <i class="bi bi-arrow-down-up"></i>
+                  Bộ phận <i class="bi bi-arrow-down-up"></i>
                 </th>
                 <th onclick="sortTable(3,this)">
-                  Ngày tạo <i class="bi bi-arrow-down-up"></i>
+                  Quyền <i class="bi bi-arrow-down-up"></i>
                 </th>
                 <th onclick="sortTable(4,this)">
+                  Trạng thái <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(5,this)">
+                  Ngày tạo <i class="bi bi-arrow-down-up"></i>
+                </th>
+                <th onclick="sortTable(6,this)">
                   Ngày cập nhật <i class="bi bi-arrow-down-up"></i>
                 </th>
                 <th>Hành động</th>
@@ -384,9 +388,9 @@
                 />
               </div>
               <div class="col-md-6">
-                <label class="form-label">Phòng ban</label>
+                <label class="form-label">Bộ phận</label>
                 <select name="department" class="form-select">
-                  <option value="">-- Chọn phòng ban --</option>
+                  <option value="">-- Chọn Bộ phận --</option>
                   <% departments.forEach(d => { %>
                   <option value="<%= d._id %>"><%= d.name %></option>
                   <% }) %>
@@ -454,13 +458,13 @@
                 />
               </div>
               <div class="mb-3">
-                <label class="form-label">Phòng ban</label>
+                <label class="form-label">Bộ phận</label>
                 <select
                   class="form-select"
                   name="department"
                   id="editDepartment"
                 >
-                  <option value="">-- Chọn phòng ban --</option>
+                  <option value="">-- Chọn Bộ phận --</option>
                   <% departments.forEach(d => { %>
                   <option value="<%= d._id %>"><%= d.name %></option>
                   <% }) %>
