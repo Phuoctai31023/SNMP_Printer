@@ -23,10 +23,7 @@
     <style>
       body {
         font-family: "Roboto", sans-serif;
-        background-color: #f5f6fa;
-      }
-      .card-header {
-        font-weight: 500;
+        background: #f5f6fa;
       }
       .status-online {
         color: #28a745 !important;
@@ -37,7 +34,7 @@
         font-weight: bold;
       }
       .status-warning {
-        color: #ffc107;
+        color: #ffc107 !important;
         font-weight: bold;
       }
       .overlay {
@@ -48,7 +45,7 @@
         bottom: 0;
         background: rgba(255, 255, 255, 0.8);
         z-index: 9999;
-        display: none; /* mặc định ẩn */
+        display: none;
         justify-content: center;
         align-items: center;
       }
@@ -61,15 +58,16 @@
         font-size: 0.9em;
       }
       th.active-sort {
-        background-color: #ffc107 !important;
+        background: #ffc107 !important;
         color: #000 !important;
       }
       td.highlight {
-        background-color: #fff3cd !important;
+        background: #fff3cd !important;
       }
     </style>
   </head>
   <body>
+    <!-- Overlay -->
     <div class="overlay" id="loadingOverlay">
       <div
         class="spinner-border text-primary"
@@ -81,29 +79,27 @@
     </div>
 
     <div class="container mt-4">
+      <!-- Header -->
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary">Xin chào, <%= user.username %> 👋</h2>
-
-        <!-- SNMP Settings button placed in header (next to user menu) -->
         <div class="d-flex align-items-center">
           <button
             type="button"
             class="btn btn-outline-dark me-2"
             data-bs-toggle="modal"
             data-bs-target="#snmpAutoModal"
-            title="Cài đặt SNMP"
           >
             <i class="bi bi-gear"></i> Cài đặt SNMP
           </button>
           <span id="autoStatus" class="text-muted small me-3"></span>
         </div>
-
         <div class="dropdown">
           <button
             class="btn btn-outline-dark dropdown-toggle"
             data-bs-toggle="dropdown"
           >
-            <i class="bi bi-person-circle"></i> <%= user.username %> (<%= user.role %>)
+            <i class="bi bi-person-circle"></i> <%= user.username %> (<%=
+            user.role %>)
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
             <% if (user && user.role === 'admin') { %>
@@ -113,9 +109,9 @@
               >
             </li>
             <li>
-              <a class="dropdown-item" href="/departments">
-                <i class="bi bi-building-gear me-2"></i> Quản lý bộ phận
-              </a>
+              <a class="dropdown-item" href="/departments"
+                ><i class="bi bi-building-gear me-2"></i>Quản lý bộ phận</a
+              >
             </li>
             <% } %>
             <li>
@@ -132,54 +128,56 @@
         </div>
       </div>
 
-      <!-- Khung hiển thị cập nhật gần nhất (server-side) -->
-      <div class="alert alert-info py-2 px-3 mb-3 shadow-sm" id="lastUpdateBox">
+      <!-- Lần cập nhật -->
+      <div class="alert alert-info py-2 px-3 mb-3 shadow-sm">
         <i class="bi bi-clock-history"></i>
-        <% if (typeof lastUpdate !== 'undefined' && lastUpdate) { %> Lần cập
-        nhật: <%= new Date(lastUpdate).toLocaleString('vi-VN') %> <% } else { %>
-        Chưa có lần cập nhật nào <% } %>
+        <span id="lastUpdateText">
+          <% if (lastUpdate) { %>Lần cập nhật: <%= new
+          Date(lastUpdate).toLocaleString('vi-VN') %><% } else { %>Chưa có lần
+          cập nhật nào<% } %>
+        </span>
       </div>
 
-      <!-- Thống kê nhanh -->
+      <!-- Thống kê -->
       <div class="row mb-4">
         <div class="col-md-4">
-          <div class="card shadow-sm border-0">
+          <div class="card shadow-sm">
             <div class="card-body text-center">
-              <h5 class="card-title text-muted">Tổng số máy in</h5>
+              <h5 class="text-muted">Tổng số máy in</h5>
               <h3><%= printers.length %></h3>
             </div>
           </div>
         </div>
         <div class="col-md-4">
-          <div class="card shadow-sm border-0">
+          <div class="card shadow-sm">
             <div class="card-body text-center">
-              <h5 class="card-title text-muted">Online</h5>
+              <h5 class="text-muted">Online</h5>
               <h3 class="text-success">
-                <%= printers.filter(p => p.online).length %>
+                <%= printers.filter(p=>p.online).length %>
               </h3>
             </div>
           </div>
         </div>
         <div class="col-md-4">
-          <div class="card shadow-sm border-0">
+          <div class="card shadow-sm">
             <div class="card-body text-center">
-              <h5 class="card-title text-muted">Offline</h5>
+              <h5 class="text-muted">Offline</h5>
               <h3 class="text-danger">
-                <%= printers.filter(p => !p.online).length %>
+                <%= printers.filter(p=>!p.online).length %>
               </h3>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Form thêm máy in (chỉ admin) -->
-      <% if (user && user.role === 'admin') { %>
+      <!-- Thêm máy in -->
+      <% if (user.role === 'admin') { %>
       <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white">
           <i class="bi bi-printer-fill"></i> Thêm Máy In
         </div>
         <div class="card-body">
-          <form method="POST" action="/printers/add" class="row g-3">
+          <form method="POST" action="/printers/add" class="row g-3" novalidate>
             <div class="col-md-4">
               <input
                 name="ip_address"
@@ -191,10 +189,9 @@
             <div class="col-md-4">
               <select name="dpm_ID" class="form-select" required>
                 <option value="">-- Chọn bộ phận --</option>
-                <% if (Array.isArray(departments) && departments.length > 0) {
-                %> <% departments.forEach(dep => { %>
+                <% departments.forEach(dep=>{ %>
                 <option value="<%= dep._id %>"><%= dep.name %></option>
-                <% }) %> <% } %>
+                <% }) %>
               </select>
             </div>
             <div class="col-md-4">
@@ -207,47 +204,44 @@
       </div>
       <% } %>
 
-      <!-- Bộ lọc và tìm kiếm -->
-      <div class="card-body p-2">
-        <div class="row g-3 mb-3">
-          <div class="col-md-6">
-            <input
-              type="text"
-              id="searchInput"
-              class="form-control"
-              placeholder="🔍 Tìm kiếm theo IP, Loại máy, Serial"
-              onkeyup="filterTable()"
-            />
-          </div>
-          <div class="col-md-3">
-            <select
-              id="statusFilter"
-              class="form-select"
-              onchange="filterTable()"
-            >
-              <option value="">-- Lọc theo trạng thái --</option>
-              <option value="Online">Online</option>
-              <option value="Offline">Offline</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <select
-              id="departmentFilter"
-              class="form-select"
-              onchange="filterTable()"
-            >
-              <option value="">-- Lọc theo bộ phận --</option>
-              <% if (Array.isArray(departments) && departments.length > 0) { %>
-              <% departments.forEach(dep => { %>
-              <option value="<%= dep._id %>"><%= dep.name %></option>
-              <% }) %> <% } %>
-            </select>
-          </div>
+      <!-- Bộ lọc -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <input
+            type="text"
+            id="searchInput"
+            class="form-control"
+            placeholder="🔍 Tìm kiếm theo IP, Loại, Serial"
+            onkeyup="filterTable()"
+          />
+        </div>
+        <div class="col-md-3">
+          <select
+            id="statusFilter"
+            class="form-select"
+            onchange="filterTable()"
+          >
+            <option value="">-- Lọc trạng thái --</option>
+            <option value="Online">Online</option>
+            <option value="Offline">Offline</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select
+            id="departmentFilter"
+            class="form-select"
+            onchange="filterTable()"
+          >
+            <option value="">-- Lọc bộ phận --</option>
+            <% departments.forEach(dep=>{ %>
+            <option value="<%= dep._id %>"><%= dep.name %></option>
+            <% }) %>
+          </select>
         </div>
       </div>
 
       <!-- Phân trang -->
-      <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+      <div class="d-flex justify-content-between align-items-center mb-2">
         <div>
           Hiển thị <span id="currentRange">0-0</span> /
           <span id="totalItems">0</span> máy in
@@ -257,25 +251,22 @@
         </nav>
       </div>
 
-      <!-- Bảng danh sách máy in -->
+      <!-- Danh sách máy in -->
       <div class="card shadow-sm">
         <div
           class="card-header bg-dark text-white d-flex justify-content-between align-items-center"
         >
           <div><i class="bi bi-list-ul"></i> Danh Sách Máy In</div>
-
-          <!-- Nút cập nhật tất cả -->
           <form
             method="POST"
             action="/printers/snmp-update-all"
-            onsubmit="showLoading(); saveLastUpdate();"
+            onsubmit="showLoading();"
           >
             <button type="submit" class="btn btn-success btn-sm">
               <i class="bi bi-arrow-repeat"></i> Cập nhật tất cả
             </button>
           </form>
         </div>
-
         <div class="table-responsive">
           <table id="printerTable" class="table table-hover align-middle mb-0">
             <thead class="table-dark">
@@ -287,7 +278,7 @@
                   Loại <i class="bi bi-arrow-down-up"></i>
                 </th>
                 <th onclick="sortTable(2,this)">
-                  Serial No <i class="bi bi-arrow-down-up"></i>
+                  Serial <i class="bi bi-arrow-down-up"></i>
                 </th>
                 <th onclick="sortTable(3,this)">
                   Bộ phận <i class="bi bi-arrow-down-up"></i>
@@ -307,115 +298,72 @@
                 <th onclick="sortTable(8,this)">
                   Toner Level <i class="bi bi-arrow-down-up"></i>
                 </th>
-                <% if (user && user.role === 'admin') { %>
+                <% if (user.role === 'admin') { %>
                 <th>Hành động</th>
                 <% } %>
               </tr>
             </thead>
             <tbody id="printerBody">
-              <% if (Array.isArray(printers) && printers.length > 0) {
-              printers.forEach(p => { %>
+              <% if (printers.length > 0) { printers.forEach(p=>{ let depId="",
+              depName="-"; if (p.dpm_ID){
+              depId=(p.dpm_ID._id||p.dpm_ID).toString(); let
+              found=departments.find(d=>d._id.toString()===depId); if(found)
+              depName=found.name; else if(p.dpm_ID.name) depName=p.dpm_ID.name;
+              } %>
               <tr>
                 <td><%= p.ip_address %></td>
-                <td><%= p.printer_type || '-' %></td>
-                <td><%= p.serial_number || '-' %></td>
-
-                <!-- Bộ phận: đưa data-dep-id = _id để filter dễ dàng và hỗ trợ trường hợp p.dpm_ID đã được populate -->
-                <td
-                  data-dep-id="<%=
-                    (function(){
-                      // trả về id: nếu p.dpm_ID là object populated -> lấy _id, nếu là string -> lấy trực tiếp, nếu không có -> ''
-                      if (!p || !p.dpm_ID) return '';
-                      try {
-                        if (typeof p.dpm_ID === 'object' && p.dpm_ID._id) return String(p.dpm_ID._id);
-                      } catch(e){}
-                      return String(p.dpm_ID);
-                    })()
-                  %>"
-                >
-                  <% 
-                    // tìm tên bộ phận một cách "robust" (p.dpm_ID có thể là id hoặc object populated)
-                    let depName = '-';
-                    if (Array.isArray(departments) && departments.length > 0) {
-                      const found = departments.find(d => String(d._id) === String(p.dpm_ID) || (p.dpm_ID && String(d._id) === String(p.dpm_ID._id)));
-                      if (found) depName = found.name;
-                      else if (p.dpm_ID && typeof p.dpm_ID === 'object' && p.dpm_ID.name) depName = p.dpm_ID.name;
-                    } else {
-                      if (p.dpm_ID && typeof p.dpm_ID === 'object' && p.dpm_ID.name) depName = p.dpm_ID.name;
-                    }
-                  %>
-                  <%= depName %>
+                <td><%= p.printer_type||"-" %></td>
+                <td><%= p.serial_number||"-" %></td>
+                <td data-dep-id="<%= depId %>"><%= depName %></td>
+                <td class="<%= p.online?'status-online':'status-offline' %>">
+                  <%= p.online?'Online':'Offline' %>
                 </td>
-
-                <td
-                  class="<%= p.online ? 'status-online' : 'status-offline' %>"
-                >
-                  <%= p.online ? 'Online' : 'Offline' %>
-                </td>
-                <td><%= p.condition || '-' %></td>
-                <td><%= p.drum_unit || '-' %></td>
-                <td><%= p.page_counter || '-' %></td>
+                <td><%= p.condition||"-" %></td>
+                <td><%= p.drum_unit||"-" %></td>
+                <td><%= p.page_counter||"-" %></td>
                 <td class="text-center">
-                  <% const raw = p.toner_level; const parsed = (typeof raw ===
-                  'number') ? raw : parseInt(String(raw ||
-                  '').replace(/[^\d]/g,''), 10); const isNA = raw === '-' || raw
-                  === 'N/A' || Number.isNaN(parsed); %> <% if (isNA) { %>
+                  <% let raw=p.toner_level,
+                  parsed=parseInt((raw||"").toString().replace(/[^\d]/g,""));
+                  if(!raw||raw==="N/A"||isNaN(parsed)){ %>
                   <span class="text-muted">N/A</span>
-                  <% } else { const level = Math.max(0, Math.min(parsed, 100));
-                  const barClass = level > 50 ? 'bg-success' : (level > 20 ? 'bg-warning' : 'bg-danger'); %>
+                  <% } else { let level=Math.min(Math.max(parsed,0),100); let
+                  barClass=level>50?"bg-success":level>20?"bg-warning":"bg-danger";
+                  %>
                   <div class="progress" style="height: 16px">
                     <div
                       class="progress-bar <%= barClass %>"
-                      role="progressbar"
                       style="width: <%= level %>%"
-                      aria-valuenow="<%= level %>"
-                      aria-valuemin="0"
-                      aria-valuemax="100"
                     >
                       <%= level %>%
                     </div>
                   </div>
                   <% } %>
                 </td>
-
-                <% if (user && user.role === 'admin') { %>
+                <% if(user.role==='admin'){ %>
                 <td class="text-center">
-                  <!-- nút Sửa: luôn truyền id (nếu p.dpm_ID là object thì lấy _id) -->
                   <button
                     class="btn btn-warning btn-sm me-1"
                     onclick="openEditModalFromBtn(this)"
                     data-id="<%= p._id %>"
                     data-ip="<%= p.ip_address %>"
-                    data-dpm="<%=
-                      (function(){
-                        if (!p || !p.dpm_ID) return '';
-                        try {
-                          if (typeof p.dpm_ID === 'object' && p.dpm_ID._id) return String(p.dpm_ID._id);
-                        } catch(e){}
-                        return String(p.dpm_ID);
-                      })()
-                    %>"
+                    data-dpm="<%= depId %>"
                   >
                     <i class="bi bi-pencil-square"></i>
                   </button>
-                  <!-- nút Xóa -->
-                  <form
-                    method="POST"
-                    action="/printers/delete/<%= p._id %>"
-                    class="d-inline"
-                    onsubmit="return confirm('Bạn có chắc chắn muốn xóa máy in này?');"
+                  <button
+                    type="button"
+                    class="btn btn-danger btn-sm"
+                    onclick="confirmDelete('<%= p._id %>')"
                   >
-                    <button class="btn btn-danger btn-sm">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                  </form>
+                    <i class="bi bi-trash"></i>
+                  </button>
                 </td>
                 <% } %>
               </tr>
               <% }) } else { %>
               <tr>
                 <td
-                  colspan="<%= user && user.role === 'admin' ? 10 : 9 %>"
+                  colspan="<%= user.role==='admin'?10:9 %>"
                   class="text-center text-muted"
                 >
                   Không có dữ liệu máy in
@@ -481,7 +429,7 @@
               >
                 <%= min %> phút
               </label>
-              <% }) %>
+              <% }); %>
             </div>
 
             <div class="text-muted small mt-3">
@@ -538,9 +486,9 @@
                   required
                 >
                   <% if (Array.isArray(departments) && departments.length > 0) {
-                  %> <% departments.forEach(dep => { %>
+                  %> <% departments.forEach(function(dep){ %>
                   <option value="<%= dep._id %>"><%= dep.name %></option>
-                  <% }) %> <% } %>
+                  <% }); %> <% } %>
                 </select>
               </div>
             </div>
@@ -566,7 +514,24 @@
       function showLoading() {
         document.getElementById("loadingOverlay").style.display = "flex";
       }
-
+      function hideLoading() {
+        document.getElementById("loadingOverlay").style.display = "none";
+      }
+      function confirmDelete(id) {
+        Swal.fire({
+          title: "Xác nhận",
+          text: "Bạn có chắc chắn muốn xóa?",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Xóa",
+          cancelButtonText: "Hủy",
+        }).then((r) => {
+          if (r.isConfirmed) {
+            showLoading();
+            window.location = "/printers/delete/" + id;
+          }
+        });
+      }
       const params = new URLSearchParams(window.location.search);
       const error = params.get("error");
       const success = params.get("success");
@@ -667,7 +632,7 @@
           let type = (cells[1].innerText || "").toLowerCase();
           let serial = (cells[2].innerText || "").toLowerCase();
           // đọc dep id từ data attribute
-          let departmentId = (cells[3].getAttribute('data-dep-id') || '');
+          let departmentId = cells[3].getAttribute("data-dep-id") || "";
           let status = (cells[4].innerText || "").trim();
 
           let matchesSearch =
@@ -702,7 +667,9 @@
         tbody.innerHTML = "";
         if (filteredRows.length === 0) {
           // lấy số cột động
-          const colCount = document.querySelectorAll('#printerTable thead th').length;
+          const colCount = document.querySelectorAll(
+            "#printerTable thead th"
+          ).length;
           tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center text-muted">Không có dữ liệu máy in</td></tr>`;
         } else {
           filteredRows
@@ -791,14 +758,10 @@
               headers: { Accept: "text/html" },
             });
             saveLastUpdate();
+            // chỉ reload khi request thành công
+            window.location.reload();
           } catch (e) {
             console.error("Auto SNMP update failed:", e);
-          } finally {
-            try {
-              window.location.reload();
-            } catch (e) {
-              console.error(e);
-            }
           }
         }
 
@@ -899,6 +862,7 @@
       function updateLastUpdateBox() {
         const el = document.getElementById("lastUpdateText");
         const last = localStorage.getItem(STORAGE_KEY_LASTUPDATE);
+        if (!el) return;
         if (last) {
           el.textContent = "Lần cập nhật: " + formatDateTime(last);
         } else {
@@ -907,6 +871,7 @@
       }
       function saveLastUpdate() {
         localStorage.setItem(STORAGE_KEY_LASTUPDATE, Date.now().toString());
+        updateLastUpdateBox();
       }
       document.addEventListener("DOMContentLoaded", function () {
         updateLastUpdateBox();
