@@ -3,7 +3,6 @@ const router = express.Router();
 const departmentController = require("../controllers/departmentController");
 const { isAuthenticated, isAdmin } = require("../middlewares/auth");
 
-// Chỉ admin mới có quyền quản lý bộ phận
 router.get("/", isAuthenticated, isAdmin, departmentController.listDepartments);
 router.post(
   "/add",

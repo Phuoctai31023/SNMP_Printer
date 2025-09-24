@@ -15,7 +15,6 @@ async function updateAllPrinters() {
         await printer.save();
       } catch (err) {
         console.error(`SNMP update failed for ${printer.ip_address}:`, err);
-        // không set lastSnmpUpdate nếu update thất bại
       }
     })
   );

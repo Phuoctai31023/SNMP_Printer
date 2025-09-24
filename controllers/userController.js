@@ -2,9 +2,12 @@ const User = require("../models/user");
 const Department = require("../models/department");
 const formatDateTime = require("../utils/formatDateTime");
 const bannedWord = require("../utils/bannedWord");
+const dns = require("dns").promises;
+const disposableDomains = new Set(require("disposable-email-domains")); // <--- thêm
 
 const allowedUsernameRegex = /^[a-z][a-z0-9._@]*$/;
 
+// Validate username
 function validateUsernameFormat(username) {
   if (!username || typeof username !== "string")
     return { ok: false, msg: "Tên đăng nhập không hợp lệ" };
@@ -63,17 +66,72 @@ function validateUsernameFormat(username) {
   return { ok: true };
 }
 
-/**
- * Danh sách user
- */
+// Validate email format
+function isEmailFormatValid(email) {
+  if (!email || typeof email !== "string") return false;
+  email = email.trim();
+
+  // Regex: local-part + @ + domain + TLD
+  const re =
+    /^[a-zA-Z0-9](?:[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]{0,63})@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/;
+
+  if (!re.test(email)) return false;
+
+  // Chặn dấu ".." trong local-part
+  const localPart = email.split("@")[0];
+  if (localPart.includes("..")) return false;
+
+  return true;
+}
+
+// Kiểm tra domain MX
+async function isValidEmailDomain(email) {
+  if (!email) return false;
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+  const domain = parts[1].toLowerCase();
+
+  try {
+    const mxRecords = await dns.resolveMx(domain);
+    return Array.isArray(mxRecords) && mxRecords.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Kiểm tra disposable email
+function isDisposableEmail(email) {
+  const domain = email.split("@")[1].toLowerCase();
+  return disposableDomains.has(domain);
+}
+
+// Hàm validate email tổng hợp
+async function validateEmail(email) {
+  if (!isEmailFormatValid(email)) {
+    return { ok: false, msg: "Email không hợp lệ" };
+  }
+  if (isDisposableEmail(email)) {
+    return { ok: false, msg: "Không được dùng email tạm thời" };
+  }
+  const domainOk = await isValidEmailDomain(email);
+  if (!domainOk) {
+    return {
+      ok: false,
+      msg: "Domain email không tồn tại hoặc không có MX record",
+    };
+  }
+  return { ok: true };
+}
+
+// Danh sách user
 exports.listUsers = async (req, res) => {
   try {
     const users = await User.find()
-      .populate("department", "name") // lấy tên phòng ban
+      .populate("department", "name")
       .sort({ createdAt: -1 })
       .lean();
 
-    const departments = await Department.find().lean(); // danh sách phòng ban
+    const departments = await Department.find().lean();
 
     const usersWithFormat = (users || []).map((u) => ({
       ...u,
@@ -83,7 +141,7 @@ exports.listUsers = async (req, res) => {
 
     res.render("users", {
       users: usersWithFormat,
-      departments, // truyền xuống view để render combobox
+      departments,
       user: req.session && req.session.user ? req.session.user : null,
       error: req.query.error || null,
       success: req.query.success || null,
@@ -94,9 +152,7 @@ exports.listUsers = async (req, res) => {
   }
 };
 
-/**
- * Thêm user mới
- */
+// Thêm user
 exports.addUser = async (req, res) => {
   try {
     let { username, password, role, email, department } = req.body;
@@ -111,11 +167,21 @@ exports.addUser = async (req, res) => {
     const exists = await User.findOne({ username });
     if (exists) return res.redirect("/users?error=Tài khoản đã tồn tại");
 
+    if (email !== undefined && email !== null && String(email).trim() !== "") {
+      email = String(email).trim().toLowerCase();
+      const ev = await validateEmail(email);
+      if (!ev.ok) {
+        return res.redirect("/users?error=" + encodeURIComponent(ev.msg));
+      }
+    } else {
+      email = null;
+    }
+
     const user = new User({
       username,
       password,
       role: role || "user",
-      email: email || null,
+      email,
       department: department && department !== "" ? department : null,
     });
     await user.save();
@@ -126,9 +192,7 @@ exports.addUser = async (req, res) => {
   }
 };
 
-/**
- * Cập nhật user
- */
+// Cập nhật user
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -159,7 +223,18 @@ exports.updateUser = async (req, res) => {
     }
 
     if (role) u.role = role;
-    if (email !== undefined) u.email = email || null;
+    if (email !== undefined) {
+      if (email === null || String(email).trim() === "") {
+        u.email = null;
+      } else {
+        const newEmail = String(email).trim().toLowerCase();
+        const ev = await validateEmail(newEmail);
+        if (!ev.ok) {
+          return res.redirect("/users?error=" + encodeURIComponent(ev.msg));
+        }
+        u.email = newEmail;
+      }
+    }
     if (department !== undefined && department !== "")
       u.department = department;
     else u.department = null;
@@ -185,9 +260,7 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-/**
- * Xóa user
- */
+// Xóa user
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -205,9 +278,7 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-/**
- * Chặn / bỏ chặn user
- */
+// Chặn / bỏ chặn user
 exports.toggleBlockUser = async (req, res) => {
   try {
     const { id } = req.params;

@@ -1,8 +1,6 @@
-// controllers/departmentController.js
 const Department = require("../models/department");
 const formatDateTime = require("../utils/formatDateTime");
 
-// helper escapeRegex nếu cần
 function escapeForRegex(str = "") {
   return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -63,8 +61,7 @@ exports.addDepartment = async (req, res) => {
       );
     }
 
-    // KIỂM TRA TRÙNG (case-insensitive) bằng collation
-    // Note: collation only affects find when used in query with collation
+    // Kiểm tra trùng
     const existing = await Department.findOne({ name: name }).collation({
       locale: "en",
       strength: 2,
@@ -95,7 +92,6 @@ exports.addDepartment = async (req, res) => {
       );
     }
 
-    // Nếu là lỗi validation của mongoose, trình bày ngắn gọn
     if (err && err.name === "ValidationError") {
       const msgs = Object.values(err.errors)
         .map((e) => e.message)
@@ -105,10 +101,8 @@ exports.addDepartment = async (req, res) => {
       );
     }
 
-    // Log stack server-side (đừng hiển thị stack cho client)
+    // Log stack server-side
     console.error(err && err.stack ? err.stack : err);
-
-    // Trả message chung (đã encode)
     const clientMsg =
       err && err.message ? err.message : "Thêm bộ phận thất bại";
     return res.redirect("/departments?error=" + encodeURIComponent(clientMsg));

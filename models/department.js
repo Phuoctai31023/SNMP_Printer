@@ -1,4 +1,3 @@
-// models/department.js
 const mongoose = require("mongoose");
 
 const departmentSchema = new mongoose.Schema(
@@ -17,7 +16,6 @@ const departmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Tạo index unique case-insensitive trên name
 departmentSchema.index(
   { name: 1 },
   { unique: true, collation: { locale: "en", strength: 2 } }

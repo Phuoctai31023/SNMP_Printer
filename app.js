@@ -9,10 +9,10 @@ const User = require("./models/user");
 
 const app = express();
 
-// ====== Kết nối DB ======
+// Kết nối DB
 require("./config/db");
 
-// ====== Middleware ======
+// Middleware
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(
@@ -24,11 +24,11 @@ app.use(
 );
 app.use(exposeUser); // để EJS biết currentUser
 
-// ====== View engine ======
+// View engine
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-// ====== Routes ======
+// Routes
 app.use("/", require("./routes/authRoutes"));
 app.use("/printers", isAuthenticated, require("./routes/printerRoutes"));
 app.use("/users", isAuthenticated, isAdmin, require("./routes/userRoutes"));
@@ -42,7 +42,7 @@ app.use(
 // Redirect dashboard
 app.get("/dashboard", (req, res) => res.redirect("/printers"));
 
-// ====== Seed admin nếu chưa có ======
+// Seed admin nếu chưa có
 mongoose.connection.once("open", async () => {
   try {
     const count = await User.countDocuments({ role: "admin" });
@@ -62,8 +62,8 @@ mongoose.connection.once("open", async () => {
   }
 });
 
-// ====== Start server ======
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
-  console.log(`🚀 Server running at http://localhost:${PORT}`)
+  console.log(`Server running at http://localhost:${PORT}`)
 );

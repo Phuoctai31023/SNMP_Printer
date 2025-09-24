@@ -25,7 +25,6 @@ exports.isAdmin = (req, res, next) => {
   next();
 };
 
-// Đưa user vào res.locals để EJS dùng ẩn/hiện UI theo quyền
 exports.exposeUser = (req, res, next) => {
   res.locals.currentUser = req.session.user || null;
   next();

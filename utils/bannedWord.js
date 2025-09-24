@@ -1,12 +1,8 @@
-// utils/bannedWord.js
 const leoProfanity = require("leo-profanity");
 
 // Load dictionary tiếng Anh cơ bản
 leoProfanity.loadDictionary();
 
-// =============================
-// 1. Danh sách từ gốc
-// =============================
 const baseBadWords = [
   "lon",
   "cailon",
@@ -87,9 +83,7 @@ const baseBadWords = [
   "ditmeoconcho",
 ];
 
-// =============================
-// 2. Bảng leetspeak
-// =============================
+// Bảng leetspeak
 const leetMap = {
   a: ["4", "@"],
   i: ["1", "!", "l"],
@@ -123,9 +117,7 @@ function generateLeetVariants(word) {
   return [...variants];
 }
 
-// =============================
-// 3. Trie cho hiệu năng
-// =============================
+// Trie cho hiệu năng
 class TrieNode {
   constructor() {
     this.children = {};
@@ -171,9 +163,8 @@ class BadWordTrie {
   }
 }
 
-// =============================
-// 4. Regex để chặn chèn ký tự đặc biệt
-// =============================
+// Regex để chặn chèn ký tự đặc biệt
+
 function createRegexFromWord(word) {
   const escaped = word
     .split("")
@@ -188,21 +179,17 @@ baseBadWords.forEach((w) => {
   variants.forEach((v) => regexList.push(createRegexFromWord(v)));
 });
 
-// =============================
-// 5. Khởi tạo Trie
-// =============================
+// Khởi tạo Trie
 const trie = new BadWordTrie();
 baseBadWords.forEach((w) => {
   const variants = generateLeetVariants(w);
   variants.forEach((v) => trie.add(v));
 });
 
-// Add vào leo-profanity để check nhanh
+// Add vào leo-profanity để check
 leoProfanity.add(baseBadWords);
 
-// =============================
-// 6. Export API
-// =============================
+// Export API
 module.exports = {
   hasBadWord(text) {
     // Check 3 tầng: leoProfanity + Trie + Regex

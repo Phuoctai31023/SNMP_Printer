@@ -14,7 +14,7 @@ exports.login = async (req, res) => {
       return res.render("login", { error: "Tài khoản của bạn đã bị chặn" });
     }
 
-    // Lưu thông tin tối thiểu vào session
+    // Lưu thông tin vào session
     req.session.user = {
       _id: user._id,
       username: user.username,
@@ -69,7 +69,7 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    dbUser.password = newPassword; // sẽ được hash bởi pre('save')
+    dbUser.password = newPassword; // hash bởi pre('save')
     await dbUser.save();
 
     res.render("changePassword", {

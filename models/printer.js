@@ -1,4 +1,3 @@
-// models/printer.js
 const mongoose = require("mongoose");
 
 const printerSchema = new mongoose.Schema({
