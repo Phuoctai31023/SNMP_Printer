@@ -1,9 +1,145 @@
 const Printer = require("../models/printer");
 const Department = require("../models/department");
+const User = require("../models/user");
 const { getPrinterData } = require("../snmp/snmpReader");
+const nodemailer = require("nodemailer");
+
+const ALERT_COOLDOWN_MINUTES = parseInt(
+  process.env.ALERT_COOLDOWN_MINUTES || "60",
+  10
+);
+
+// tạo transporter nodemailer
+let transporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+} else {
+  console.warn(
+    "SMTP not configured. Alert emails will not be sent. Set SMTP_HOST/SMTP_USER/SMTP_PASS in .env"
+  );
+}
+
+async function sendAlertEmailIfNeeded(printerDoc, severity, conditionText) {
+  try {
+    if (!transporter) {
+      console.log("Skipping send mail: transporter not configured");
+      return;
+    }
+    if (printerDoc.lastAlertSeverity === severity && printerDoc.lastAlertAt) {
+      const diffMin =
+        (Date.now() - new Date(printerDoc.lastAlertAt).getTime()) / 60000;
+      if (diffMin < ALERT_COOLDOWN_MINUTES) {
+        console.log(
+          `Skip alert for ${
+            printerDoc.ip_address
+          }: same severity '${severity}' within cooldown (${Math.round(
+            diffMin
+          )} min)`
+        );
+        return;
+      }
+    }
+
+    if (!printerDoc.dpm_ID) {
+      console.log(
+        `Printer ${printerDoc.ip_address} has no department assigned, skip alert.`
+      );
+      return;
+    }
+    const deptId =
+      typeof printerDoc.dpm_ID === "object" && printerDoc.dpm_ID._id
+        ? printerDoc.dpm_ID._id
+        : printerDoc.dpm_ID;
+
+    // Lấy tên bộ phận
+    let deptName = "Không xác định";
+    if (typeof printerDoc.dpm_ID === "object" && printerDoc.dpm_ID.name) {
+      deptName = printerDoc.dpm_ID.name;
+    } else {
+      try {
+        const d = await Department.findById(deptId).select("name").lean();
+        if (d && d.name) deptName = d.name;
+      } catch (e) {
+        // ignore, dùng 'Không xác định'
+        console.warn(
+          "Failed to load department name for id",
+          deptId,
+          e && e.message
+        );
+      }
+    }
+
+    // tìm users của department có email
+    const users = await User.find({
+      department: deptId,
+      email: { $ne: null },
+    })
+      .select("email username")
+      .lean();
+
+    const toEmails = [...new Set(users.map((u) => u.email).filter(Boolean))];
+
+    if (!toEmails || toEmails.length === 0) {
+      console.log(
+        `No emails found for department ${deptName || deptId} (printer ${
+          printerDoc.ip_address
+        })`
+      );
+      return;
+    }
+
+    const subjectPrefix = severity === "error" ? "[CRITICAL]" : "[WARNING]";
+    const subject = `${subjectPrefix} Máy in ${printerDoc.ip_address} (${
+      conditionText || "Trạng thái lạ"
+    })`;
+
+    const html = `
+      <p>Xin chào,</p>
+      <p>Hệ thống phát hiện máy in <strong>${
+        printerDoc.ip_address
+      }</strong> (Bộ phận: <strong>${deptName}</strong>) có trạng thái: <strong>${conditionText}</strong></p>
+      <ul>
+        <li>Severity: ${severity}</li>
+        <li>IP: ${printerDoc.ip_address}</li>
+        <li>Thời gian: ${new Date().toLocaleString()}</li>
+      </ul>
+      <p>Vui lòng kiểm tra thiết bị hoặc liên hệ người quản trị.</p>
+    `;
+
+    const mailOptions = {
+      from: process.env.FROM_EMAIL || process.env.SMTP_USER,
+      to: toEmails.join(","),
+      subject,
+      html,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(
+      `Alert email sent for ${printerDoc.ip_address} (department: ${deptName}) to ${toEmails.length} recipient(s)`
+    );
+
+    // cập nhật lastAlertAt & lastAlertSeverity
+    printerDoc.lastAlertAt = new Date();
+    printerDoc.lastAlertSeverity = severity;
+    await printerDoc.save();
+  } catch (err) {
+    console.error(
+      "Error sending alert email:",
+      err && err.stack ? err.stack : err
+    );
+  }
+}
 
 async function updateAllPrinters() {
-  const printers = await Printer.find();
+  const printers = await Printer.find().populate("dpm_ID", "name");
   await Promise.allSettled(
     printers.map(async (printer) => {
       try {
@@ -13,6 +149,13 @@ async function updateAllPrinters() {
         printer.lastSnmpUpdate = new Date();
 
         await printer.save();
+
+        // nếu severity warning hoặc error -> gửi email
+        const sev = data.conditionSeverity;
+        if (sev === "warning" || sev === "error") {
+          // gửi mail cho user thuộc bộ phận máy in đó
+          await sendAlertEmailIfNeeded(printer, sev, data.condition);
+        }
       } catch (err) {
         console.error(`SNMP update failed for ${printer.ip_address}:`, err);
       }
@@ -27,6 +170,7 @@ exports.getAllPrinters = async (req, res) => {
     const { dpm_ID, error, success } = req.query;
     const query = dpm_ID ? { dpm_ID } : {};
 
+    // Khi render dashboard: populate để hiển thị tên bộ phận
     const printers = await Printer.find(query)
       .populate("dpm_ID", "name")
       .lean();
@@ -46,7 +190,7 @@ exports.getAllPrinters = async (req, res) => {
       user: req.session.user,
       error,
       success,
-      lastUpdate, // truyền mốc server-side
+      lastUpdate,
     });
   } catch (err) {
     console.error("Error rendering dashboard:", err);
@@ -68,7 +212,6 @@ exports.addPrinter = async (req, res) => {
     const printer = new Printer({ ip_address, dpm_ID });
     await printer.save();
 
-    // báo thành công
     res.redirect("/printers?success=Thêm máy in thành công");
   } catch (err) {
     console.error("Error adding printer:", err);

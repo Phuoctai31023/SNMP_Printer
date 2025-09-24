@@ -1,3 +1,4 @@
+// snmp/snmpReader.js
 const snmp = require("net-snmp");
 const { getTonerLevelFromWeb, getConditionFromWeb } = require("./webReader");
 
@@ -27,6 +28,7 @@ const getPrinterData = (ip) => {
 
     session.get(Object.values(oids), async (error, varbinds) => {
       if (error) {
+        session.close();
         return resolve({
           online: false,
           page_counter: "-",
@@ -35,10 +37,17 @@ const getPrinterData = (ip) => {
           toner_level: "-",
           serial_number: "-",
           condition: "-",
+          conditionSeverity: "unknown",
+          conditionBg: null,
         });
       }
 
-      let condition = await getConditionFromWeb(ip);
+      const conditionObj = await getConditionFromWeb(ip);
+      const conditionText = (conditionObj && conditionObj.text) || "-";
+      const conditionSeverity =
+        (conditionObj && conditionObj.severity) || "unknown";
+      const conditionBg = (conditionObj && conditionObj.bgColor) || null;
+
       let tonerLevel = getNumberSafe(varbinds[3]);
 
       // fallback nếu toner SNMP trả về - hoặc <0
@@ -54,7 +63,9 @@ const getPrinterData = (ip) => {
         drum_unit: getNumberSafe(varbinds[2]),
         toner_level: tonerLevel,
         serial_number: getValueSafe(varbinds[4]) || "-",
-        condition: condition || "-",
+        condition: conditionText,
+        conditionSeverity,
+        conditionBg,
       };
 
       session.close();
