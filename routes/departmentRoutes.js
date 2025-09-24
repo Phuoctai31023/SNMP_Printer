@@ -23,4 +23,11 @@ router.post(
   departmentController.deleteDepartment
 );
 
+router.get(
+  "/:id",
+  isAuthenticated,
+  isAdmin,
+  departmentController.getDepartmentDetail
+);
+
 module.exports = router;

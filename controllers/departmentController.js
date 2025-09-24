@@ -1,4 +1,6 @@
 const Department = require("../models/department");
+const Printer = require("../models/printer");
+const User = require("../models/user");
 const formatDateTime = require("../utils/formatDateTime");
 
 function escapeForRegex(str = "") {
@@ -168,5 +170,56 @@ exports.deleteDepartment = async (req, res) => {
       "/departments?error=" +
         encodeURIComponent(err.message || "Xóa bộ phận thất bại")
     );
+  }
+};
+
+exports.getDepartmentDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.redirect(
+        "/departments?error=" + encodeURIComponent("ID bộ phận không hợp lệ")
+      );
+    }
+
+    // Lấy thông tin bộ phận hiện tại
+    const department = await Department.findById(id).lean();
+    if (!department) {
+      return res.redirect(
+        "/departments?error=" + encodeURIComponent("Không tìm thấy bộ phận")
+      );
+    }
+
+    // Lấy toàn bộ departments để hiển thị sidebar
+    const departments = await Department.find()
+      .select("name description") // chỉ lấy field cần thiết
+      .sort({ name: 1 })
+      .lean();
+
+    // Lấy users thuộc phòng ban
+    const users = await User.find({ department: id })
+      .select("username email role isBlocked createdAt updatedAt")
+      .sort({ username: 1 })
+      .lean();
+
+    // Lấy printers thuộc phòng ban
+    const printers = await Printer.find({ dpm_ID: id })
+      .select(
+        "ip_address serial_number printer_type model type vendor toner_level online condition lastSnmpUpdate"
+      )
+      .lean();
+
+    res.render("department_detail", {
+      department,
+      departments, // thêm vào để sidebar không lỗi
+      users,
+      printers,
+      user: req.session.user,
+      error: req.query.error || null,
+      success: req.query.success || null,
+    });
+  } catch (err) {
+    console.error("Error loading department detail:", err);
+    res.status(500).send("Lỗi server khi tải chi tiết bộ phận");
   }
 };

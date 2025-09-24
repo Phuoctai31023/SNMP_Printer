@@ -111,7 +111,7 @@ async function sendAlertEmailIfNeeded(printerDoc, severity, conditionText) {
         <li>IP: ${printerDoc.ip_address}</li>
         <li>Thời gian: ${new Date().toLocaleString()}</li>
       </ul>
-      <p>Vui lòng kiểm tra thiết bị hoặc liên hệ người quản trị.</p>
+      <p>Vui lòng kiểm tra thiết bị hoặc liên hệ trưởng bộ phận.</p>
     `;
 
     const mailOptions = {
@@ -198,24 +198,42 @@ exports.getAllPrinters = async (req, res) => {
   }
 };
 
+function isValidIP(ip) {
+  const ipRegex =
+    /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  return ipRegex.test(ip);
+}
+
 exports.addPrinter = async (req, res) => {
   try {
     const { ip_address, dpm_ID } = req.body;
 
+    // kiểm tra IP hợp lệ
+    if (!isValidIP(ip_address)) {
+      return res.redirect(
+        "/printers?error=" + encodeURIComponent("Địa chỉ IP không hợp lệ")
+      );
+    }
+
     // kiểm tra trùng IP
     const existing = await Printer.findOne({ ip_address });
     if (existing) {
-      return res.redirect(`/printers?error=IP ${ip_address} đã tồn tại`);
+      return res.redirect(
+        "/printers?error=" + encodeURIComponent(`IP ${ip_address} đã tồn tại`)
+      );
     }
 
-    // thêm mới
     const printer = new Printer({ ip_address, dpm_ID });
     await printer.save();
 
-    res.redirect("/printers?success=Thêm máy in thành công");
+    res.redirect(
+      "/printers?success=" + encodeURIComponent("Thêm máy in thành công")
+    );
   } catch (err) {
     console.error("Error adding printer:", err);
-    res.redirect("/printers?error=Thêm máy in thất bại");
+    res.redirect(
+      "/printers?error=" + encodeURIComponent("Thêm máy in thất bại")
+    );
   }
 };
 
@@ -235,20 +253,32 @@ exports.updatePrinter = async (req, res) => {
     const { id } = req.params;
     const { ip_address, dpm_ID } = req.body;
 
+    if (!isValidIP(ip_address)) {
+      return res.redirect(
+        "/printers?error=" + encodeURIComponent("Địa chỉ IP không hợp lệ")
+      );
+    }
+
     // kiểm tra trùng IP
     const existing = await Printer.findOne({
       ip_address,
       _id: { $ne: id },
     });
     if (existing) {
-      return res.redirect(`/printers?error=IP ${ip_address} đã tồn tại`);
+      return res.redirect(
+        "/printers?error=" + encodeURIComponent(`IP ${ip_address} đã tồn tại`)
+      );
     }
 
     await Printer.findByIdAndUpdate(id, { ip_address, dpm_ID });
-    res.redirect("/printers?success=Cập nhật máy in thành công");
+    res.redirect(
+      "/printers?success=" + encodeURIComponent("Cập nhật máy in thành công")
+    );
   } catch (err) {
     console.error("Error updating printer:", err);
-    res.redirect("/printers?error=Cập nhật máy in thất bại");
+    res.redirect(
+      "/printers?error=" + encodeURIComponent("Cập nhật máy in thất bại")
+    );
   }
 };
 

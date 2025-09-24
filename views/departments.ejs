@@ -223,7 +223,14 @@
               <% if (Array.isArray(departments) && departments.length > 0) { %>
               <% departments.forEach(function(d){ %>
               <tr>
-                <td><%= d.name %></td>
+                <td>
+                  <a
+                    href="/departments/<%= d._id %>"
+                    class="text-decoration-underline fw-normal text-primary"
+                  >
+                    <%= d.name %>
+                  </a>
+                </td>
                 <td><%= d.description || '-' %></td>
                 <td><%= d.createdAtFormatted %></td>
                 <td><%= d.updatedAtFormatted %></td>

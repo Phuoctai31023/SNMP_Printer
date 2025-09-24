@@ -177,17 +177,35 @@
           <i class="bi bi-printer-fill"></i> Thêm Máy In
         </div>
         <div class="card-body">
-          <form method="POST" action="/printers/add" class="row g-3" novalidate>
+          <form
+            method="POST"
+            action="/printers/add"
+            class="row g-3"
+            id="addPrinterForm"
+          >
             <div class="col-md-4">
               <input
+                type="text"
+                id="ip_address"
                 name="ip_address"
                 class="form-control"
                 placeholder="IP Address"
                 required
+                pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$"
+                oninvalid="if(this.validity.valueMissing){this.setCustomValidity('Vui lòng nhập IP');} 
+                else if(this.validity.patternMismatch){this.setCustomValidity('Vui lòng nhập đúng định dạng IP');}"
+                oninput="this.setCustomValidity('')"
               />
             </div>
             <div class="col-md-4">
-              <select name="dpm_ID" class="form-select" required>
+              <select
+                id="dpm_ID"
+                name="dpm_ID"
+                class="form-select"
+                required
+                oninvalid="this.setCustomValidity('Vui lòng chọn bộ phận')"
+                oninput="this.setCustomValidity('')"
+              >
                 <option value="">-- Chọn bộ phận --</option>
                 <% departments.forEach(dep=>{ %>
                 <option value="<%= dep._id %>"><%= dep.name %></option>
@@ -350,13 +368,16 @@
                   >
                     <i class="bi bi-pencil-square"></i>
                   </button>
-                  <button
-                    type="button"
-                    class="btn btn-danger btn-sm"
-                    onclick="confirmDelete('<%= p._id %>')"
+                  <form
+                    method="POST"
+                    action="/printers/delete/<%= p._id %>"
+                    style="display: inline"
+                    onsubmit="return confirm('Bạn có chắc chắn muốn xóa máy in này?');"
                   >
-                    <i class="bi bi-trash"></i>
-                  </button>
+                    <button type="submit" class="btn btn-danger btn-sm">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
                 </td>
                 <% } %>
               </tr>
@@ -475,6 +496,9 @@
                   id="edit_ip"
                   name="ip_address"
                   required
+                  pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$"
+                  oninvalid="if(this.validity.valueMissing){this.setCustomValidity('Vui lòng nhập IP');} else if(this.validity.patternMismatch){this.setCustomValidity('Vui lòng nhập đúng định dạng IP');}"
+                  oninput="this.setCustomValidity('')"
                 />
               </div>
               <div class="mb-3">
@@ -517,21 +541,21 @@
       function hideLoading() {
         document.getElementById("loadingOverlay").style.display = "none";
       }
-      function confirmDelete(id) {
+      async function confirmDelete(id) {
         Swal.fire({
           title: "Xác nhận",
-          text: "Bạn có chắc chắn muốn xóa?",
+          text: "Bạn có chắc chắn muốn xóa máy in này?",
           icon: "warning",
           showCancelButton: true,
           confirmButtonText: "Xóa",
           cancelButtonText: "Hủy",
         }).then((r) => {
           if (r.isConfirmed) {
-            showLoading();
-            window.location = "/printers/delete/" + id;
+            window.location.href = "/printers/delete/" + id;
           }
         });
       }
+
       const params = new URLSearchParams(window.location.search);
       const error = params.get("error");
       const success = params.get("success");
