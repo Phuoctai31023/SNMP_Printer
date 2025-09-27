@@ -21,6 +21,7 @@
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
+    "jsonwebtoken": "^9.0.2",
     "leo-profanity": "^1.8.0",
     "mongoose": "^8.17.0",
     "net-snmp": "^3.23.0",

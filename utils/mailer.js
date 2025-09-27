@@ -1,4 +1,6 @@
+// utils/mailer.js
 const nodemailer = require("nodemailer");
+const jwt = require("jsonwebtoken");
 const Department = require("../models/department");
 const User = require("../models/user");
 
@@ -6,6 +8,13 @@ const ALERT_COOLDOWN_MINUTES = parseInt(
   process.env.ALERT_COOLDOWN_MINUTES || "60",
   10
 );
+
+const PUBLIC_SECRET = process.env.PUBLIC_LINK_SECRET || "";
+const PUBLIC_BASE_RAW = process.env.PUBLIC_BASE_URL || "http://localhost:3000";
+const PUBLIC_TTL = process.env.PUBLIC_LINK_TTL || "24h";
+
+// chuẩn hoá PUBLIC_BASE (bỏ slash cuối nếu có)
+const PUBLIC_BASE = PUBLIC_BASE_RAW.replace(/\/$/, "");
 
 // tạo transporter nodemailer
 let transporter = null;
@@ -21,6 +30,23 @@ if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
   });
 } else {
   console.warn("⚠ SMTP not configured. Alert emails will not be sent.");
+}
+
+// Tạo public link có token; nếu không có SECRET -> fallback về link nội bộ (yêu cầu login)
+function createPublicLink(printerId) {
+  if (!PUBLIC_SECRET) {
+    console.warn(
+      "PUBLIC_LINK_SECRET not set — fallback to internal link (login required)"
+    );
+    return `${PUBLIC_BASE}/printers/${printerId}/detail`;
+  }
+  const token = jwt.sign({ printerId: String(printerId) }, PUBLIC_SECRET, {
+    expiresIn: PUBLIC_TTL,
+  });
+  // đồng bộ URL public với app.js
+  return `${PUBLIC_BASE}/printer-detail/${printerId}?token=${encodeURIComponent(
+    token
+  )}`;
 }
 
 async function sendAlertEmailIfNeeded(printerDoc, severity, conditionText) {
@@ -90,89 +116,94 @@ async function sendAlertEmailIfNeeded(printerDoc, severity, conditionText) {
       conditionText || "Trạng thái lạ"
     })`;
 
-    // HTML email
+    // tạo public link có token
+    const publicLink = createPublicLink(printerDoc._id);
+
+    // HTML email (responsive, cân đối)
     const html = `
-      <div style="margin:0; padding:0; background:#f4f6f8; font-family:Segoe UI, Roboto, Arial, sans-serif; color:#2c3e50;">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td align="center" style="padding:30px 15px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" 
-                     style="max-width:650px; background:#ffffff; border:1px solid #e1e5eb; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-                
-                <!-- Header -->
-                <tr>
-                  <td align="center" style="padding:25px; border-bottom:3px solid ${severityColor}; background:#ffffff;">
-                    <img src="cid:companyLogo" alt="Company Logo" style="max-width:160px; margin-bottom:10px;" />
-                    <h1 style="color:#2c3e50; font-size:20px; margin:8px 0 0;">HỆ THỐNG GIÁM SÁT MÁY IN</h1>
-                    <p style="font-size:13px; margin:4px 0 0; color:#7f8c8d; font-style:italic;">Silk Sense Hội An River Resort</p>
-                  </td>
-                </tr>
+  <div style="margin:0; padding:0; background:#f4f6f8; font-family:Segoe UI, Roboto, Arial, sans-serif; color:#2c3e50;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" 
+                 style="max-width:700px; background:#ffffff; border:1px solid #e6e9ee; border-radius:10px; overflow:hidden; box-shadow:0 6px 18px rgba(18,38,63,0.06);">
+            
+            <!-- Header -->
+            <tr>
+              <td align="center" style="padding:28px 22px; border-bottom:4px solid ${severityColor}; background:#fff;">
+                <img src="cid:companyLogo" alt="Company Logo" style="max-width:160px; height:auto; margin-bottom:10px; display:block;" />
+                <h1 style="color:#2c3e50; font-size:20px; margin:6px 0 0; font-weight:600;">HỆ THỐNG GIÁM SÁT MÁY IN</h1>
+                <p style="font-size:13px; margin:6px 0 0; color:#7f8c8d; font-style:italic;">Silk Sense Hội An River Resort</p>
+              </td>
+            </tr>
 
-                <!-- Alert -->
-                <tr>
-                  <td align="center" style="background:${severityColor}; padding:16px;">
-                    <span style="color:#ffffff; font-size:16px; font-weight:bold;">🚨 ${severityLabel} – Sự cố máy in</span>
-                  </td>
-                </tr>
+            <!-- Banner -->
+            <tr>
+              <td align="center" style="background:${severityColor}; padding:14px;">
+                <span style="color:#ffffff; font-size:16px; font-weight:700;">🚨 ${severityLabel} – Sự cố máy in</span>
+              </td>
+            </tr>
 
-                <!-- Body -->
-                <tr>
-                  <td style="padding:25px;">
-                    <p>Kính gửi Quý bộ phận <strong>${deptName}</strong>,</p>
-                    <p>Hệ thống vừa phát hiện sự cố trên máy in. Dưới đây là chi tiết:</p>
+            <!-- Body -->
+            <tr>
+              <td style="padding:22px; line-height:1.6;">
+                <p style="margin:0 0 10px;">Kính gửi Quý bộ phận <strong>${deptName}</strong>,</p>
+                <p style="margin:0 0 18px;">Hệ thống vừa phát hiện sự cố trên máy in. Dưới đây là chi tiết:</p>
 
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" 
-                           style="border:1px solid #e1e5eb; border-radius:6px; font-size:14px;">
-                      <tr style="background:#f9fafc;">
-                        <td style="padding:10px; font-weight:600; width:35%;">Bộ phận</td>
-                        <td style="padding:10px;">${deptName}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:10px; font-weight:600;">Địa chỉ IP</td>
-                        <td style="padding:10px;">${printerDoc.ip_address}</td>
-                      </tr>
-                      <tr style="background:#f9fafc;">
-                        <td style="padding:10px; font-weight:600;">Trạng thái</td>
-                        <td style="padding:10px; color:${severityColor}; font-weight:bold;">${conditionText}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:10px; font-weight:600;">Mức độ</td>
-                        <td style="padding:10px;">${severity.toUpperCase()}</td>
-                      </tr>
-                      <tr style="background:#f9fafc;">
-                        <td style="padding:10px; font-weight:600;">Thời gian</td>
-                        <td style="padding:10px;">${new Date().toLocaleString(
-                          "vi-VN"
-                        )}</td>
-                      </tr>
-                    </table>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" 
+                       style="border:1px solid #e6e9ee; border-radius:6px; font-size:14px; margin-bottom:20px;">
+                  <tr style="background:#fbfdff;">
+                    <td style="padding:12px; font-weight:600; width:36%;">Bộ phận</td>
+                    <td style="padding:12px;">${deptName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px; font-weight:600;">Địa chỉ IP</td>
+                    <td style="padding:12px;">${printerDoc.ip_address}</td>
+                  </tr>
+                  <tr style="background:#fbfdff;">
+                    <td style="padding:12px; font-weight:600;">Trạng thái</td>
+                    <td style="padding:12px; color:${severityColor}; font-weight:700;">${conditionText}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px; font-weight:600;">Mức độ</td>
+                    <td style="padding:12px;">${severity.toUpperCase()}</td>
+                  </tr>
+                  <tr style="background:#fbfdff;">
+                    <td style="padding:12px; font-weight:600;">Thời gian</td>
+                    <td style="padding:12px;">${new Date().toLocaleString(
+                      "vi-VN"
+                    )}</td>
+                  </tr>
+                </table>
 
-                    <div style="text-align:center; margin:28px 0;">
-                      <a href="http://localhost:3000/printers" 
-                         style="background:${severityColor}; color:#fff; padding:14px 28px; border-radius:6px; font-weight:600; text-decoration:none;">
-                        🔎 Xem chi tiết trên hệ thống
-                      </a>
-                    </div>
-                  </td>
-                </tr>
+                <div style="text-align:center; margin:18px 0;">
+                  <a href="${publicLink}" 
+                     style="background:${severityColor}; color:#ffffff; text-decoration:none; padding:12px 26px; border-radius:6px; font-size:15px; font-weight:700; display:inline-block;">
+                    🔎 Xem chi tiết trên hệ thống
+                  </a>
+                </div>
 
-                <!-- Footer -->
-                <tr>
-                  <td style="background:#f9fafc; padding:20px; text-align:center; font-size:12px; color:#7f8c8d;">
-                    <p>Đây là email tự động từ hệ thống giám sát máy in <strong>Silk Sense Hội An River Resort</strong>.</p>
-                    <p>☎ Hotline IT: +84 123 456 789 | ✉ it.support@silksenseresort.com</p>
-                    <p>© ${new Date().getFullYear()} Silk Sense Hội An River Resort. All Rights Reserved.</p>
-                  </td>
-                </tr>
+                <p style="margin:0; color:#5b6a74;">Vui lòng xử lý sự cố hoặc liên hệ bộ phận IT để được hỗ trợ ngay.</p>
+              </td>
+            </tr>
 
-              </table>
-            </td>
-          </tr>
-        </table>
-      </div>
-    `;
+            <!-- Footer -->
+            <tr>
+              <td style="background:#fbfdff; padding:18px; text-align:center; font-size:12px; color:#7f8c8d;">
+                <p style="margin:6px 0;">Đây là email tự động từ hệ thống giám sát máy in <strong>Silk Sense Hội An River Resort</strong>.</p>
+                <p style="margin:6px 0;">☎ Hotline IT: +84 905 418 198 | ✉ it.staff@silksenseresort.com</p>
+                <p style="margin:6px 0;">© ${new Date().getFullYear()} Silk Sense Hội An River Resort. All Rights Reserved.</p>
+              </td>
+            </tr>
 
-    // gửi mail
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+`;
+
+    // Prepare mailOptions
     const mailOptions = {
       from: process.env.FROM_EMAIL || process.env.SMTP_USER,
       to: toEmails.join(","),
@@ -183,17 +214,41 @@ async function sendAlertEmailIfNeeded(printerDoc, severity, conditionText) {
       ],
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(
-      `✅ Alert email sent for ${printerDoc.ip_address} (${deptName}) to ${toEmails.length} recipient(s)`
-    );
+    // Chuẩn bị log entry (lưu dù gửi mail thành công hay không)
+    const logEntry = {
+      severity,
+      condition: conditionText || printerDoc.condition || "",
+      at: new Date(),
+      notified: false,
+    };
 
-    printerDoc.lastAlertAt = new Date();
-    printerDoc.lastAlertSeverity = severity;
+    // Gửi mail (bắt lỗi nhưng dù lỗi vẫn lưu log)
+    let mailOk = false;
+    try {
+      await transporter.sendMail(mailOptions);
+      mailOk = true;
+      console.log(
+        `✅ Alert email sent for ${printerDoc.ip_address} (department: ${deptName}) to ${toEmails.length} recipient(s)`
+      );
+    } catch (err) {
+      console.error("❌ Error sending alert email:", err?.stack || err);
+    }
+
+    // cập nhật log vào document và lastAlert nếu mailOk
+    if (!Array.isArray(printerDoc.errorLogs)) printerDoc.errorLogs = [];
+    logEntry.notified = mailOk;
+    printerDoc.errorLogs.push(logEntry);
+
+    // cập nhật lastAlert chỉ khi mail gửi thành công
+    if (mailOk) {
+      printerDoc.lastAlertAt = new Date();
+      printerDoc.lastAlertSeverity = severity;
+    }
+
     await printerDoc.save();
   } catch (err) {
-    console.error("❌ Error sending alert email:", err?.stack || err);
+    console.error("❌ Error in sendAlertEmailIfNeeded:", err?.stack || err);
   }
 }
 
-module.exports = { sendAlertEmailIfNeeded };
+module.exports = { sendAlertEmailIfNeeded, createPublicLink };

@@ -4,9 +4,9 @@ const mongoose = require("mongoose");
 const session = require("express-session");
 const path = require("path");
 
+const printerController = require("./controllers/printerController");
 const { isAuthenticated, isAdmin, exposeUser } = require("./middlewares/auth");
 const User = require("./models/user");
-
 const app = express();
 
 // Kết nối DB
@@ -30,6 +30,7 @@ app.set("views", path.join(__dirname, "views"));
 
 // Routes
 app.use("/", require("./routes/authRoutes"));
+app.use("/printer-detail", require("./routes/printerDetailRoutes"));
 app.use("/printers", isAuthenticated, require("./routes/printerRoutes"));
 app.use("/users", isAuthenticated, isAdmin, require("./routes/userRoutes"));
 app.use(

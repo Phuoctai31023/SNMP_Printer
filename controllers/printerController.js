@@ -1,8 +1,7 @@
+const jwt = require("jsonwebtoken");
 const Printer = require("../models/printer");
 const Department = require("../models/department");
-const User = require("../models/user");
 const { getPrinterData } = require("../snmp/snmpReader");
-const nodemailer = require("nodemailer");
 const { sendAlertEmailIfNeeded } = require("../utils/mailer");
 
 async function updateAllPrinters() {
@@ -35,15 +34,24 @@ exports.getAllPrinters = async (req, res) => {
 
     const { dpm_ID, error, success } = req.query;
     const query = dpm_ID ? { dpm_ID } : {};
-    const printers = await Printer.find(query)
-      .populate("dpm_ID", "name")
-      .lean();
+    let printers = await Printer.find(query).populate("dpm_ID", "name").lean();
     const departments = await Department.find().lean();
     const lastDoc = await Printer.findOne(query)
       .sort({ lastSnmpUpdate: -1 })
       .select("lastSnmpUpdate")
       .lean();
     const lastUpdate = lastDoc ? lastDoc.lastSnmpUpdate : null;
+
+    // gắn publicLink
+    printers = printers.map((p) => {
+      if (process.env.PUBLIC_LINK_SECRET) {
+        const token = jwt.sign({}, process.env.PUBLIC_LINK_SECRET, {
+          expiresIn: process.env.PUBLIC_LINK_TTL || "24h",
+        });
+        p.publicLink = `/printer-detail/${p._id}?token=${token}`;
+      }
+      return p;
+    });
 
     res.render("dashboard", {
       printers,
@@ -69,14 +77,12 @@ exports.addPrinter = async (req, res) => {
   try {
     const { ip_address, dpm_ID } = req.body;
 
-    // kiểm tra IP hợp lệ
     if (!isValidIP(ip_address)) {
       return res.redirect(
         "/printers?error=" + encodeURIComponent("Địa chỉ IP không hợp lệ")
       );
     }
 
-    // kiểm tra trùng IP
     const existing = await Printer.findOne({ ip_address });
     if (existing) {
       return res.redirect(
@@ -120,7 +126,6 @@ exports.updatePrinter = async (req, res) => {
       );
     }
 
-    // kiểm tra trùng IP
     const existing = await Printer.findOne({
       ip_address,
       _id: { $ne: id },
@@ -150,5 +155,70 @@ exports.snmpUpdateAll = async (req, res) => {
   } catch (err) {
     console.error("SNMP update all failed:", err);
     res.redirect("/printers?error=Cập nhật SNMP thất bại");
+  }
+};
+
+//Route chi tiết khi login (dashboard)
+exports.getPrinterDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const printer = await Printer.findById(id)
+      .populate("dpm_ID", "name")
+      .lean();
+    if (!printer) {
+      return res.status(404).send("Không tìm thấy máy in");
+    }
+
+    const printers = await Printer.find().select("ip_address").lean();
+
+    res.render("printerDetail", {
+      printer,
+      printers,
+      user: req.session.user, // có user → hiện offcanvas
+      token: null,
+    });
+  } catch (err) {
+    console.error("Error loading printer detail (auth):", err);
+    res.status(500).send("Lỗi khi tải chi tiết máy in");
+  }
+};
+
+// Route chi tiết khi public link (email)
+// Route chi tiết khi public link (email)
+exports.getPrinterDetailPublic = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.query.token;
+
+    if (!process.env.PUBLIC_LINK_SECRET) {
+      return res.status(403).send("Access denied: public links are disabled");
+    }
+    if (!token) {
+      return res.status(403).send("Access denied: missing token");
+    }
+
+    try {
+      jwt.verify(token, process.env.PUBLIC_LINK_SECRET);
+    } catch (e) {
+      return res.status(403).send("Access denied: invalid or expired token");
+    }
+
+    const printer = await Printer.findById(id)
+      .populate("dpm_ID", "name")
+      .lean();
+    if (!printer) {
+      return res.status(404).send("Không tìm thấy máy in");
+    }
+
+    // ở chế độ public → không cần danh sách printers để render offcanvas
+    res.render("printerDetail", {
+      printer,
+      printers: [],
+      user: null,
+      token,
+    });
+  } catch (err) {
+    console.error("Error loading printer detail (public):", err);
+    res.status(500).send("Lỗi khi tải chi tiết máy in");
   }
 };

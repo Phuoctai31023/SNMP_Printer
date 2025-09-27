@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chi tiết máy in - <%= printer.ip_address %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background: #f5f7fb;
+        font-family: "Roboto", sans-serif;
+        color: #2c3e50;
+      }
+      .card {
+        border-radius: 12px;
+        transition: all 0.3s ease;
+      }
+      .meta {
+        color: #6b7a86;
+        font-size: 0.95rem;
+      }
+      .status-online {
+        color: #198754;
+        font-weight: 600;
+      }
+      .status-offline {
+        color: #dc3545;
+        font-weight: 600;
+      }
+      .badge-error {
+        background: #c0392b;
+      }
+      .badge-warning {
+        background: #e67e22;
+      }
+      .table-key {
+        width: 32%;
+        font-weight: 600;
+        color: #495057;
+      }
+      .small-muted {
+        color: #6c757d;
+        font-size: 0.9rem;
+      }
+      @media (max-width: 576px) {
+        .table-key {
+          width: 40%;
+        }
+      }
+
+      /* highlight theo mức độ */
+      .highlight-error {
+        border: 2px solid #c0392b !important;
+        box-shadow: 0 0 12px rgba(192, 57, 43, 0.4);
+      }
+      .highlight-warning {
+        border: 2px solid #e67e22 !important;
+        box-shadow: 0 0 12px rgba(230, 126, 34, 0.35);
+      }
+
+      /* icon cảnh báo nhấp nháy */
+      .blink-icon {
+        animation: blink 1s infinite;
+        font-size: 1.4rem;
+        margin-right: 6px;
+      }
+      @keyframes blink {
+        0% {
+          opacity: 1;
+          color: #c0392b;
+        }
+        50% {
+          opacity: 0;
+        }
+        100% {
+          opacity: 1;
+          color: #c0392b;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container py-4">
+      <!-- Header -->
+      <div
+        class="d-flex justify-content-between align-items-start mb-4 flex-wrap"
+      >
+        <div>
+          <h3 class="mb-1">
+            <i class="bi bi-printer-fill text-primary"></i> Máy in <%=
+            printer.ip_address %>
+          </h3>
+          <div class="meta">
+            Bộ phận: <%= printer.dpm_ID ? printer.dpm_ID.name : '-' %>
+          </div>
+        </div>
+        <div class="small-muted mt-2">
+          <% if (printer.lastSnmpUpdate) { %> Lần cập nhật:
+          <strong
+            ><%= new Date(printer.lastSnmpUpdate).toLocaleString("vi-VN")
+            %></strong
+          >
+          <% } else { %>
+          <em>Chưa có dữ liệu SNMP</em>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <!-- Thông tin bên trái -->
+        <div class="col-lg-7">
+          <!-- Thông tin cơ bản -->
+          <div
+            class="card shadow-sm mb-3 <% if (printer.conditionSeverity==='error'){ %>highlight-error<% } else if (printer.conditionSeverity==='warning'){ %>highlight-warning<% } %>"
+          >
+            <div class="card-body">
+              <h5 class="mb-3">Thông tin chung</h5>
+              <table class="table table-borderless mb-0">
+                <tr>
+                  <td class="table-key">Loại</td>
+                  <td><%= printer.printer_type || '-' %></td>
+                </tr>
+                <tr>
+                  <td class="table-key">Serial</td>
+                  <td><%= printer.serial_number || '-' %></td>
+                </tr>
+                <tr>
+                  <td class="table-key">Trạng thái</td>
+                  <td>
+                    <span
+                      class="<%= printer.online ? 'status-online' : 'status-offline' %>"
+                    >
+                      <%= printer.online ? 'Online' : 'Offline' %></span
+                    >
+                  </td>
+                </tr>
+                <tr>
+                  <td class="table-key">Tình trạng</td>
+                  <td>
+                    <% if (printer.condition) { %> <% if
+                    (printer.conditionSeverity === 'error') { %>
+                    <span class="blink-icon">⚠️</span>
+                    <% } %>
+                    <strong><%= printer.condition %></strong>
+                    <% if (printer.conditionSeverity === 'error') { %>
+                    <span class="badge badge-error ms-2">Nghiêm trọng</span>
+                    <% } else if (printer.conditionSeverity === 'warning') { %>
+                    <span class="badge badge-warning ms-2">Cảnh báo</span>
+                    <% } %> <% } else { %>
+                    <span class="text-muted">-</span>
+                    <% } %>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="table-key">Cảnh báo gần nhất</td>
+                  <td>
+                    <%= printer.lastAlertAt ? new
+                    Date(printer.lastAlertAt).toLocaleString("vi-VN") : '-' %>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <!-- Thông số SNMP -->
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <h5 class="mb-3">Thông số SNMP</h5>
+              <table class="table table-borderless mb-0">
+                <tr>
+                  <td class="table-key">Drum Unit</td>
+                  <td><%= printer.drum_unit || '-' %></td>
+                </tr>
+                <tr>
+                  <td class="table-key">Page Counter</td>
+                  <td><%= printer.page_counter || '-' %></td>
+                </tr>
+                <tr>
+                  <td class="table-key">Toner Level</td>
+                  <td>
+                    <% let raw=printer.toner_level,
+                    parsed=parseInt((raw||"").toString().replace(/[^\d]/g,""));
+                    %> <% if (!raw || raw==="N/A" || isNaN(parsed)) { %>
+                    <span class="text-muted">N/A</span>
+                    <% } else { let level=Math.min(Math.max(parsed,0),100); let
+                    barClass=level>50?"bg-success":level>20?"bg-warning":"bg-danger";
+                    %>
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="flex-grow-1">
+                        <div class="progress" style="height: 18px">
+                          <div
+                            class="progress-bar <%= barClass %>"
+                            style="width: <%= level %>%"
+                          >
+                            <%= level %>%
+                          </div>
+                        </div>
+                      </div>
+                      <span class="fw-bold"><%= level %>%</span>
+                    </div>
+                    <% } %>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cột bên phải -->
+        <div class="col-lg-5">
+          <!-- Lịch sử lỗi -->
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h5 class="mb-3">Lịch sử lỗi</h5>
+              <% if (printer.errorLogs && printer.errorLogs.length > 0) { %>
+              <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Thời gian</th>
+                      <th>Mức độ</th>
+                      <th>Nội dung</th>
+                      <th>Thông báo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% printer.errorLogs.slice().reverse().forEach(log => { %>
+                    <tr>
+                      <td><%= new Date(log.at).toLocaleString("vi-VN") %></td>
+                      <td>
+                        <% if (log.severity==='error') { %>
+                        <span class="badge badge-error">Nghiêm trọng</span>
+                        <% } else if (log.severity==='warning') { %>
+                        <span class="badge badge-warning">Cảnh báo</span>
+                        <% } else { %>
+                        <span class="badge bg-secondary"
+                          ><%= log.severity %></span
+                        >
+                        <% } %>
+                      </td>
+                      <td><%= log.condition || '-' %></td>
+                      <td><%= log.notified ? 'Có' : 'Không' %></td>
+                    </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+              <% } else { %>
+              <p class="text-muted mb-0">Chưa có lịch sử lỗi.</p>
+              <% } %>
+            </div>
+          </div>
+        </div>
+        <div class="card shadow-sm mb-3">
+          <div class="d-grid gap-2">
+            <a href="/printers" class="btn btn-outline-secondary"
+              ><i class="bi bi-arrow-left"></i> Quay lại danh sách</a
+            >
+          </div>
+        </div>
+      </div>
+      <div class="text-center small-muted mt-4">
+        © <%= new Date().getFullYear() %> Silk Sense Hội An River Resort
+      </div>
+    </div>
+    <% if (user) { %>
+    <!-- Offcanvas: danh sách máy in -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasPrinters">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title"><i class="bi bi-printer"></i> Máy in</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="offcanvas"
+        ></button>
+      </div>
+      <div class="offcanvas-body p-0">
+        <div class="list-group list-group-flush">
+          <% printers.forEach(p => { %>
+          <a
+            href="/printer-detail/<%= p._id %><%= token ? ('?token=' + token) : '' %>"
+            class="list-group-item list-group-item-action <%= p._id.toString() === printer._id.toString() ? 'active' : '' %>"
+          >
+            <i class="bi bi-printer-fill me-2"></i> <%= p.ip_address %>
+          </a>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Button -->
+    <button
+      class="btn btn-primary floating-btn"
+      data-bs-toggle="offcanvas"
+      data-bs-target="#offcanvasPrinters"
+      title="Danh sách máy in"
+    >
+      <i class="bi bi-list"></i>
+    </button>
+
+    <style>
+      .floating-btn {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 2000;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+    </style>
+    <% } %>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

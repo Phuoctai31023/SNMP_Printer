@@ -332,7 +332,13 @@
               depName=found.name; else if(p.dpm_ID.name) depName=p.dpm_ID.name;
               } %>
               <tr>
-                <td><%= p.ip_address %></td>
+                <td>
+                  <% if (p.publicLink) { %>
+                  <a href="<%= p.publicLink %>" class="fw-bold text-primary">
+                    <%= p.ip_address %>
+                  </a>
+                  <% } else { %> <%= p.ip_address %> <% } %>
+                </td>
                 <td><%= p.printer_type||"-" %></td>
                 <td><%= p.serial_number||"-" %></td>
                 <td data-dep-id="<%= depId %>"><%= depName %></td>

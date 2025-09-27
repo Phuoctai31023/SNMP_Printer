@@ -1,3 +1,4 @@
+// models/printer.js
 const mongoose = require("mongoose");
 
 const printerSchema = new mongoose.Schema(
@@ -15,6 +16,16 @@ const printerSchema = new mongoose.Schema(
     conditionBg: { type: String, default: null },
     // lưu thời điểm SNMP cập nhật gần nhất cho mỗi máy in
     lastSnmpUpdate: { type: Date, default: null },
+
+    // lịch sử lỗi
+    errorLogs: [
+      {
+        severity: { type: String },
+        condition: { type: String },
+        at: { type: Date, default: Date.now },
+        notified: { type: Boolean, default: false },
+      },
+    ],
 
     // thông tin cảnh báo để điều chế gửi mail
     lastAlertAt: { type: Date, default: null },
